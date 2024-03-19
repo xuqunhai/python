@@ -2534,3 +2534,6 @@
 ## 使用MicroPython
 # MicroPython是Python的一个精简版本，它是为了运行在单片机这样的性能有限的微控制器上，最小体积仅256K，运行时仅需16K内存。
 # 裁剪了大部分标准库，仅保留部分模块如math、sys的部分函数和类。此外，很多标准模块如json、re等在MicroPython中变成了以u开头的ujson、ure，表示针对MicroPython开发的标准库。
+
+
+## web demo
