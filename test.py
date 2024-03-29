@@ -2526,9 +2526,9 @@
 #     srv = await loop.create_server(app.make_handler(), '127.0.0.1', 8000)
 #     print('Server started at http://127.0.0.1:8000...')
 #     return srv
-# loop = asyncio.get_event_loop()
-# loop.run_until_complete(init(loop))
-# loop.run_forever()
+# loop = asyncio.get_event_loop() # 获取事件循环对象，管理异步操作的执行和调度
+# loop.run_until_complete(init(loop)) # 执行一个异步任务，直到它完成。
+# loop.run_forever() # 保持程序持续运行来处理请求
 
 
 ## 使用MicroPython

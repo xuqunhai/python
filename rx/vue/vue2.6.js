@@ -10,7 +10,7 @@
     ? define(factory)
     : ((global = global || self), (global.Vue = factory()))
 })(this, function () {
-  'use strict'
+  ;('use strict')
 
   /*  */
 
@@ -10334,9 +10334,12 @@
       el.pre = el.pre || el.parent.pre
     }
     // optimize阶段调用markStaticRoots，会设置staticRoot属性
+    // staticProcessed防止重复处理同一个节点。
     if (el.staticRoot && !el.staticProcessed) {
+      // m(index, isInFor) - m(1, true)
       return genStatic(el, state)
     } else if (el.once && !el.onceProcessed) {
+      // parseHTML - processOnce - el.once = true
       return genOnce(el, state)
     } else if (el.for && !el.forProcessed) {
       return genFor(el, state)
@@ -10374,12 +10377,16 @@
     // Some elements (templates) need to behave differently inside of a v-pre
     // node.  All pre nodes are static roots, so we can use this as a location to
     // wrap a state change and reset it upon exiting the pre node.
-    var originalPreState = state.pre
+    var originalPreState = state.pre // 当前是否在处理 v-pre 指令内部的元素。
     if (el.pre) {
-      state.pre = el.pre
+      state.pre = el.pre // 检查当前正在处理的元素 (el) 是否有 pre 属性，应该略过当前元素及其子元素的编译。
     }
     state.staticRenderFns.push('with(this){return ' + genElement(el, state) + '}')
     state.pre = originalPreState
+    // _m 对应于 renderStatic 方法
+    // 最新添加的静态渲染函数的索引
+    // 检查当前静态节点是否位于 v-for 循环内部。需要做额外的处理以正确地重用节点。
+
     return '_m(' + (state.staticRenderFns.length - 1) + (el.staticInFor ? ',true' : '') + ')'
   }
 
@@ -10402,6 +10409,17 @@
         state.warn('v-once can only be used inside v-for that is keyed. ', el.rawAttrsMap['v-once'])
         return genElement(el, state)
       }
+      /*
+      rx gen
+
+      _o 标记一个元素为只渲染一次的函数
+      onceId 确保即使有多个元素使用了 v-once，每个都能被正确地处理。
+      key 优化元素的重用。
+      
+      <span v-once>This will never change: {{ msg }}</span>
+      假设渲染函数代码是 "renderSpanFunction()"，state.onceId 在处理这个元素时的值是 0，并且这个元素没有设置 key。
+      '_o(renderSpanFunction(),0,undefined)'
+      */
       return '_o(' + genElement(el, state) + ',' + state.onceId++ + ',' + key + ')'
     } else {
       return genStatic(el, state)
@@ -10415,7 +10433,8 @@
 
   function genIfConditions(conditions, state, altGen, altEmpty) {
     if (!conditions.length) {
-      return altEmpty || '_e()'
+      // 没有更多条件需要处理
+      return altEmpty || '_e()' // 默认的空节点表达式 _e()。
     }
 
     var condition = conditions.shift()
@@ -10424,19 +10443,46 @@
     } else {
       return '' + genTernaryExp(condition.block)
     }
+    /*
+    rx gen
+
+    <p v-if="show">Visible when show is true</p>
+    genIfConditions([{exp: 'show', block: pBlock}], state)
+    '(show) ?
+    _c('p', {}, ['Visible when show is true']) :
+    _e()'
+    
+    <p v-if="show">Visible when show is true</p>
+    <p v-else>Visible when show is false</p>
+    genIfConditions([{exp: 'show', block: ifBlock}, {exp: '', block: elseBlock}], state)
+    返回值：'(show) ? 
+    _c('p', {}, ['Visible when show is true']) :
+    _c('p', {}, ['Visible when show is false'])'
+
+    <p v-if="show" v-once>Visible once when show is true</p>
+    genIfConditions([{exp: 'show', block: onceBlock}], state, altGen)
+    大体上会是类似于 '(show) ?
+    _o(_c('p', {}, ['Visible once when show is true']),0) :
+    _e()'
 
     // v-if with v-once should generate code like (a)?_m(0):_m(1)
+    */
+
     function genTernaryExp(el) {
       return altGen ? altGen(el, state) : el.once ? genOnce(el, state) : genElement(el, state)
     }
   }
 
+  // altGen：替代的元素生成函数，如果提供，将用于生成 v-for 体内每个元素的渲染函数代码。
+  // altHelper：替代的帮助函数，如果提供，将用于替换默认的列表渲染函数 _l。
   function genFor(el, state, altGen, altHelper) {
+    // 基本信息提取
     var exp = el.for
     var alias = el.alias
     var iterator1 = el.iterator1 ? ',' + el.iterator1 : ''
     var iterator2 = el.iterator2 ? ',' + el.iterator2 : ''
 
+    // 警告处理：如果元素是一个可能的组件（除了 slot 和 template 标签），并且没有设置 key，则发出一个警告。
     if (state.maybeComponent(el) && el.tag !== 'slot' && el.tag !== 'template' && !el.key) {
       state.warn(
         '<' +
@@ -10454,6 +10500,7 @@
     }
 
     el.forProcessed = true // avoid recursion
+    // 使用 altHelper 或默认的 _l 函数遍历迭代对象（exp），为每个项目执行提供的 altGen 函数或默认的 genElement 函数，生成每个项目的渲染函数代码。
     return (
       (altHelper || '_l') +
       '((' +
@@ -10468,6 +10515,25 @@
       (altGen || genElement)(el, state) +
       '})'
     )
+    /*
+    rx gen
+
+    <li v-for="item in items">{{ item.name }}</li>
+    genFor({ for: 'items', alias: 'item', tag: 'li' }, state)
+    返回值：'_l( (items), function(item){
+      return _c('li',{},[_v(_s(item.name))])
+    })'
+
+    <li v-for="(item, index) in items">{{ index }}: {{ item.name }}</li>
+    genFor({ for: 'items', alias: 'item', iterator1: 'index', tag: 'li' }, state)
+    返回值：'_l((items),function(item,index){
+      return _c('li',{},[_v(_s(index) + ": " + _s(item.name))])
+    })'
+
+    <my-component v-for="item in items"></my-component>
+    genFor({ for: 'items', alias: 'item', tag: 'my-component' }, state)
+    返回值：发出警告，因为 my-component 是组件且没有指定 key。
+    */
   }
 
   function genData$2(el, state) {
@@ -10559,18 +10625,20 @@
   function genDirectives(el, state) {
     var dirs = el.directives
     if (!dirs) {
+      // 如果没有指令，函数不执行任何操作并直接返回。
       return
     }
-    var res = 'directives:['
+    var res = 'directives:[' // 用于构建表示指令集
     var hasRuntime = false
     var i, l, dir, needRuntime
     for (i = 0, l = dirs.length; i < l; i++) {
       dir = dirs[i]
       needRuntime = true
-      var gen = state.directives[dir.name]
+      var gen = state.directives[dir.name] // 检查是否有相应的编译时指令处理函数
       if (gen) {
         // compile-time directive that manipulates AST.
         // returns true if it also needs a runtime counterpart.
+        // 指示是否还需要运行时的指令处理。
         needRuntime = !!gen(el, dir, state.warn)
       }
       if (needRuntime) {
@@ -10590,6 +10658,56 @@
     if (hasRuntime) {
       return res.slice(0, -1) + ']'
     }
+    /*
+    rx gen
+    无指令
+    genDirectives({directives: undefined}, state)
+    返回值：undefined
+
+    有编译时和运行时的指令
+    state.directives['my-directive'] = function(el, dir, warn) {
+      // 模拟编译时处理
+      el.attrsList.push({name: 'data-compiled', value: 'true'});
+      return true; // 表示还需要运行时处理
+    };
+    genDirectives({
+      directives: [
+        {
+          name: 'my-directive', 
+          rawName: 'v-my-directive', 
+          value: 'someValue', 
+          arg: 'arg', 
+          modifiers: {
+            modifier: true
+          }
+        }
+      ]
+    }, state)
+    返回值：'directives:[
+      {
+        name:"my-directive",
+        rawName:"v-my-directive",
+        value:(someValue),
+        expression:"someValue",
+        arg:"arg",
+        modifiers:{"modifier":true}
+      }
+    ]'
+
+    只有编译时处理的指令
+    state.directives['compile-only'] = function(el, dir, warn) {
+      // 模拟编译时处理
+      el.attrsList.push({name: 'data-compile-only', value: 'true'});
+      return false; // 不需要运行时处理
+    };
+    genDirectives({
+      directives: [
+        {name: 'compile-only', rawName: 'v-compile-only'}
+      ]
+    }, state)
+    返回值：undefined
+
+    */
   }
 
   function genInlineTemplate(el, state) {
@@ -10653,6 +10771,8 @@
     if (children.length) {
       var el$1 = children[0]
       // optimize single v-for
+      // 根据 checkSkip 和 state.maybeComponent 判断是否需要添加规范化类型。
+      // maybeComponent这个函数在处理事件监听器和子节点规范化时特别有用，
       if (children.length === 1 && el$1.for && el$1.tag !== 'template' && el$1.tag !== 'slot') {
         var normalizationType = checkSkip ? (state.maybeComponent(el$1) ? ',1' : ',0') : ''
         return '' + (altGenElement || genElement)(el$1, state) + normalizationType
@@ -10670,12 +10790,72 @@
         (normalizationType$1 ? ',' + normalizationType$1 : '')
       )
     }
+    /*
+    rx gen
+    单个 v-for 优化
+    <ul>
+      <li v-for="item in items">{{ item.name }}</li>
+    </ul>
+    genChildren({ 
+      children: [
+        { 
+          for: 'items', 
+          alias: 'item', 
+          tag: 'li' 
+        }
+      ] 
+    }, state, true)
+    返回值：'_l(
+      (items),
+      function(item){
+        return _c(
+          'li',
+          {},
+          [
+            _v(_s(item.name))
+          ]
+        )
+      }
+    ),0'
+    生成了一个遍历 items 的渲染函数代码，加上 ,0 表示不需要额外的规范化处理。
+
+    多个子节点处理
+    <div>
+      <p>Static text</p>
+      <p v-for="item in items">{{ item.name }}</p>
+    </div>
+    genChildren({ 
+      children: [
+        { 
+          text: 'Static text', 
+          tag: 'p' 
+        }, 
+        { 
+          for: 'items', 
+          alias: 'item', 
+          tag: 'p' 
+        }
+      ] 
+    }, state, false)
+    返回值：'[
+      _c(
+        'p',
+        {},
+        [_v("Static text")]
+      ),
+      _l((items),function(item){
+        return _c('p',{},[_v(_s(item.name))])
+      })
+    ],0'
+
+    */
   }
 
   // determine the normalization needed for the children array.
   // 0: no normalization needed
   // 1: simple normalization needed (possible 1-level deep nested array)
   // 2: full normalization needed
+  // 规范化类型帮助 Vue 确定如何平展子节点列表，以便它们可以更高效地更新和渲染。
   function getNormalizationType(children, maybeComponent) {
     var res = 0
     for (var i = 0; i < children.length; i++) {
@@ -10706,6 +10886,7 @@
     return res
   }
 
+  // 判断一个元素的子节点是否需要规范化处理
   function needsNormalization(el) {
     return el.for !== undefined || el.tag === 'template' || el.tag === 'slot'
   }
@@ -10790,22 +10971,6 @@
   function transformSpecialNewlines(text) {
     return text.replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029')
   }
-
-  /*  */
-
-  // these keywords should not appear inside expressions, but operators like
-  // typeof, instanceof and in are allowed
-  var prohibitedKeywordRE = new RegExp(
-    '\\b' +
-      (
-        'do,if,for,let,new,try,var,case,else,with,await,break,catch,class,const,' +
-        'super,throw,while,yield,delete,export,import,return,switch,default,' +
-        'extends,finally,continue,debugger,function,arguments'
-      )
-        .split(',')
-        .join('\\b|\\b') +
-      '\\b'
-  )
 
   // these unary operators should not be used as property/method names
   var unaryOperatorsRE = new RegExp('\\b' + 'delete,typeof,void'.split(',').join('\\s*\\([^\\)]*\\)|\\b') + '\\s*\\([^\\)]*\\)')
