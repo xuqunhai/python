@@ -37,6 +37,25 @@
 # while True:
 #   print('死循环')
 
+# a = []
+# b = None
+# c = {}
+# d = set()
+# e = tuple()
+# if a:
+#   print(1)
+# elif b:
+#   print(2)
+# elif c:
+#   print(3)
+# elif d:
+#   print(4)
+# elif e:
+#   print(5)
+# else:
+#   print(6)
+# # 6
+
 # i = 1
 # s = 0
 # while i <= 5:
@@ -54,6 +73,15 @@
 # for c in range(3, 10): # 3-9
 #   print(c)
 
+# ls1 = [1,2]
+# tp1 = (1,2)
+# for item1 in ls1:
+#   print(item1) # 1 2
+# for item2 in tp1:
+#   print(item2) # 1 2
+# 上面只能获取到val，要想获取索引需用下面方法
+# for i in range(len(lst)): # 循环索引
+
 # range(n) 从0到n，不包含n
 # range(m, n) 从m到n，不包含n
 # range(m, n, s) 从m到n，不包含n，间隔是s
@@ -63,16 +91,20 @@
 # if p > 10:
 #   pass # 如果没想好，空着的话会报错，所以可以用pass占位，这样就不会报错
 
-# 字符串格式化
+# 字符串格式化-模版字符串
 # name = 'rx'
 # s = "my name is %s" % name
 # s1 = "my name is {}".format(name)
-# s2 = f"my name is {name}"
+# s2 = f"my name is {name}" # 常用
 # print(s, s1, s2)
 
-# 字符串索引和切片
+# s3 = """我还是一个字符串"""
+# print('''我说:"要'上天'"''')
+# print("""我说:"要'上天'" """) # 三个引号和前一个要有空格
+
+# 字符串索引和切片（前闭后开）
 # s = "我是大哥"
-# print(s[-1]) # 哥
+# print(s[-1]) # 哥（最后一个）
 # # print(s[5]) # 索引超出范围报错 - IndexError: string index out of range
 # print(s[1:2]) # 是
 # print(s[0:3]) # 我是大
@@ -100,6 +132,9 @@
 # s = " 你好， 我 是 詹姆斯 "
 # s1 = s.strip() # 去掉左右空格
 # print(s1) # [你好， 我 是 詹姆斯]
+
+# s = '   \t\t asdf\r\r  \n\n' # \t缩进 \r回车 \n换行
+# print(s.strip()) # asdf
 
 # s2 = s.replace(" ", '')
 # print(s2) # 你好，我是詹姆斯
@@ -144,6 +179,10 @@
 # # print(classmates[3]) # 当索引超出了范围时，Python会报一个IndexError错误
 # print(classmates[-1]) # Tracy
 
+# 列表切片
+# lst = [1,2,3,4]
+# print(lst[1:3]) # [2, 3]
+
 # # 往list中追加元素到末尾：
 # classmates.append('Adam')
 
@@ -161,6 +200,12 @@
 
 # # list里面的元素的数据类型也可以不同
 # L = ['Apple', 123, True]
+
+# list合并
+# ls1 = [1,2]
+# ls2 = [3,4]
+# ls1.extend(ls2)
+# print(ls1) # [1, 2, 3, 4]
 
 # 元组：tuple。tuple和list非常类似，但是tuple一旦初始化就不能修改
 # tuple不能变了，它也没有append()，insert()这样的方法。
@@ -283,7 +328,7 @@
 
 # 二是通过dict提供的get()方法，如果key不存在，可以返回None，或者自己指定的value
 # print(d.get('Thomas')) # None
-# print(d.get('Thomas', -1)) # -1
+# print(d.get('Thomas', 123)) # 123
 
 # 删除一个key，用pop(key)方法，
 # d.pop('Bob')
@@ -335,7 +380,7 @@
 # str(1.23)
 # bool('')
 
-# 定义函数
+# 定义函数 - 不像js一样，不存在声明提前
 # 使用def语句，依次写出函数名、括号、括号中的参数和冒号:，然后，在缩进块中编写函数体，函数的返回值用return语句返回。
 # def my_abs(x):
 #     if x >= 0:
@@ -354,8 +399,43 @@
 #         return x
 #     else:
 #         return -x
-    
+
+# 模块 - import时自动运行对应文件
+# import jiamijie as jmj # 使用 jmj.jiami
+# from jiamijie import jiami
 # from abstest import my_abs来导入my_abs()函数，注意abstest是文件名（不含.py扩展名）
+
+# 内置模块
+# # 随机产生一个整数
+# import random
+# print(random.randint(10, 20))
+# # 随机从列表获取内容
+# lst = [11, 22]
+# print(random.choice(lst))
+# # 获取当前时间戳
+# import time
+# print(time.time()) # 1711725303.7165718，单位秒
+# t = int(time.time()*1000)
+# # 文件夹创建、判断、路径
+# import os
+# os.makedirs("a/b/c") # 一次性创建多层文件夹
+# p1 = 'a'
+# p2 = 'b'
+# real_path = os.path.join(p1, p2)
+# if not os.path.exists(real_path):
+#     os.makedirs(real_path)
+# # 把json字符串编程python字典
+# s = '{"nane": "rx"}'
+# import json
+# dic = json.loads(s) # json.load处理的是json文件
+# print(dic) # {'nane': 'rx'}
+# print(type(dic)) # <class 'dict'>
+
+# 把python字典变成json字符串
+# dic = {"a": None, "b": True}
+# str = json.dumps(dic)
+# print(str) # {"a": null, "b": true}
+# print(str(dic)) # {'a': None, 'b': True} - python字符串和json字符串差异
 
 # 空函数
 # def nop():
@@ -599,6 +679,11 @@
 # print(isinstance(123, Iterable)) # False
 
 # 在Python中，迭代是通过for ... in来完成的，不仅可以用在list或tuple上，还可以作用在其他可迭代对象上。
+# lis = [5,6,7]
+# for item in lis:
+#   print(item) # 5 6 7
+
+# forIn对list或tuple获取的是value，对dict迭代的是key
 # d = {'a': 1, 'b': 2, 'c': 3}
 # for key in d:
 #   print(key) # 因为dict的存储不是按照list的方式顺序排列，所以，迭代出的结果顺序很可能不一样。
@@ -668,6 +753,18 @@
 #     print('测试通过!')
 # else:
 #     print('测试失败!')
+
+# 异常 try: xxx except Exception as e: pass
+# 运行过程中产生错误-服务器、反爬、网络波动
+# import time
+# count = 3
+# for i in range(count):
+#   try:
+#     print(1/0)
+#     break
+#   except Exception as e:
+#     print(e)
+#     time.sleep(10)
 
 # 生成器
 # 创建一个包含100万个元素的列表，不仅占用很大的存储空间，如果我们仅仅需要访问前面几个元素，那后面绝大多数元素占用的空间都白白浪费了。
@@ -805,7 +902,7 @@
 # from functools import reduce
 # def str2float(s):
 #     DIGITS = {'0': 0, '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9}
-#     int, float = s.split('.')
+#     int, float = s.split('.') # 可以直接赋值给变量
 #     def str2num(s):
 #         return DIGITS[s]
 #     def num2float(a, b):
@@ -1662,6 +1759,49 @@
 
 ## argparse
 # 简化参数解析，定义好各个参数类型后，它能直接返回有效的参数。
+
+# 字符集和bytes
+# 历史
+# 1个字节    2个字节
+# ascii -> ANSI标准 -> 中国（GB2312 -> GBK -> GB18030）
+#                  -> 台湾（BIG5）
+# unicode（可变长度-避免空间浪费） - 字母1个字节、欧洲文2个字节、中文3个字节
+# （注意gbk里中文2个字节，utf8所有都是3字节）
+# s = '中国'
+# bs1 = s.encode('utf-8')
+# bs2 = s.encode('gbk')
+# print(bs1) # b'\xe4\xb8\xad\xe5\x9b\xbd' -> 6
+# print(bs2) # b'\xd6\xd0\xb9\xfa' -> 4
+# 所以需要知道编码是utf还是gbk后才能正确解码，不能说encode用utf8，decode用gbk
+
+# 内存unicode，硬盘需编码成gbk或utf8
+
+# # 字符串换成字节 - 中文3字节，字母数字1字节，所以转成bytes后字母数字正常显示
+# bs = '拉夫666rafer'.encode('utf-8') # b'\xe6\x8b\x89\xe5\xa4\xab666rafer'
+# print(bs)
+# # 字节还原字符串
+# bt= b'\xe6\x8b\x89\xe5\xa4\xab666rafer'
+# print(bt.decode('utf-8')) # 拉夫666rafer
+
+# 文件操作
+# 写
+# f = open('666.txt', mode='w', encoding="utf-8") # a是追加模式，
+# f.write('111')
+# f.write('222')
+# encoding针对的是文字，如果是图片或音视频，拿到的只能是字节，即二进制流，所以mode变为wb，且不需要加encoding
+# f = open('1.jpg', mode='wb') # 读取字节就是 rb 模式
+
+# 读
+# f = open('666.txt', mode='r', encoding="utf-8")
+# print(f.read()) # 一次性读取
+# 一行一行读取可用
+# for line in f:
+#   line = line.strip() # print函数内部会在末尾加换行\n，所以需要去掉
+#   print(line)
+
+# 读写完成后都要调用f.close()，可用语法糖 with，好处是不需要手动close关闭
+# with open() as f:
+#   pass
 
 ## Base64是一种最常见的二进制编码方法。(二进制到字符串)
 # 打开exe、jpg、pdf这些文件时，我们都会看到一大堆乱码,因为二进制文件包含很多无法显示和打印的字符，
@@ -2535,5 +2675,132 @@
 # MicroPython是Python的一个精简版本，它是为了运行在单片机这样的性能有限的微控制器上，最小体积仅256K，运行时仅需16K内存。
 # 裁剪了大部分标准库，仅保留部分模块如math、sys的部分函数和类。此外，很多标准模块如json、re等在MicroPython中变成了以u开头的ujson、ure，表示针对MicroPython开发的标准库。
 
+# 正则
+import re
+
+# search 只匹配一次，
+# print(re.search("1[3-9][0-9]{9}", "15111111111")) # <re.Match object; span=(0, 11), match='15111111111'>
+# print(re.search("1[3-9][0-9]{9}", "tel15111111111")) # <re.Match object; span=(3, 14), match='15111111111'>
+# print(re.search("^1[3-9][0-9]{9}$", "tel15111111111")) # None
+# print(re.search("^1[3-9][0-9]{9}$", "15111111111")) # <re.Match object; span=(0, 11), match='15111111111'>
+
+# match 只匹配一次，必须从第一位开始，类似search("^")
+# print(re.match("1[3-9][0-9]{9}", "15111111111")) # <re.Match object; span=(0, 11), match='15111111111'>
+# print(re.match("1[3-9][0-9]{9}", "tel15111111111")) # None
+# print(re.match("1[3-9][0-9]{9}", "15111111111tel")) # <re.Match object; span=(0, 11), match='15111111111'>
+# print(re.match("1[3-9][0-9]{9}", "15111111111tel").group()) # 15111111111
+
+# findall
+# str = "<b>bold</b><b>boldbold</b><b>boldboldbold</b>"
+# print(re.search('<b>.*</b>', str).group()) # <b>bold</b><b>boldbold</b><b>boldboldbold</b> - 贪婪匹配
+# print(re.search('<b>.*?</b>', str).group()) # <b>bold</b>
+# print(re.search('<b>.*?</b>', str).groups()) # ()
+# print(re.search('<b>(.*?)</b>', str).groups()) # ('bold',) - 有多个括号时，groups可单独获取组
+# print(re.findall('<b>.*?</b>', str)) # ['<b>bold</b>', '<b>boldbold</b>', '<b>boldboldbold</b>']
+# print(re.findall('<b>.*</b>', str)) # ['<b>bold</b><b>boldbold</b><b>boldboldbold</b>']
+
+# 第三参数取值：re.I 忽略大小写 / re.M 多行匹配 / re.S 使点匹配包括换行符
+# str = """
+# <a href="http://www.baidu.com">baidu1</a>
+# <A href="http://www.baidu.com">baidu2</A>
+# <a href="http://www.baidu.com">bai
+# du3</a>
+# """
+# print(re.findall('(<a href="(.*?)">(.*?)</a>)', str))
+# # [('<a href="http://www.baidu.com">baidu1</a>', 'http://www.baidu.com', 'baidu1')]
+# # print(re.findall('(<a href="(.*?)">(.*?)</a>)', str, re.I))
+# # [('<a href="http://www.baidu.com">baidu1</a>', 'http://www.baidu.com', 'baidu1'), ('<A href="http://www.baidu.com">baidu2</A>', 'http://www.baidu.com', 'baidu2')]
+# print(re.findall('(<a href="(.*?)">(.*?)</a>)', str, re.S))
+# # [('<a href="http://www.baidu.com">baidu1</a>', 'http://www.baidu.com', 'baidu1'), ('<a href="http://www.baidu.com">bai\ndu3</a>', 'http://www.baidu.com', 'bai\ndu3')]
+
+# # finditer
+# obj = re.finditer("[a-z]", "abcdefg")
+# for i in obj:
+#   print(i.group())
+
+# # split
+# str = "a1b2c3d5e"
+# print(re.split('\d', str)) # ['a', 'b', 'c', 'd', 'e']
+# print(re.split("\d", str, maxsplit=2)) # ['a', 'b', 'c3d5e']
+# str2 = "a\rb\tc\nd\r\ne"
+# print(re.split('\s', str2)) # ['a', 'b', 'c', 'd', '', 'e']
+
+# # re.M对^$影响，但对\A-\Z没影响
+# str = "abc\nacd"
+# print(re.findall("^a", str)) # ['a']
+# print(re.findall("^a", str, re.M)) # ['a', 'a']
+# print(re.findall("\Aa", str)) # ['a'] - \A只匹配整个字符串开头,\Z只匹配整个字符串行尾
+# print(re.findall("\Aa", str, re.M)) # ['a']
+
+# # 分组起名称-当有多个子存储时，别名很方便
+# str = "abcd1"
+# print(re.search("(\d+)", str).group()) # 1
+# print(re.search("(\d+)", str).group(0)) # 1
+# print(re.search("(?P<rx>\d+)", str).group("rx")) # 1 - 别名rx，?P<alias>
+
+# # 编译正则 - 便于多次使用
+# str = "<b>bold</b><b>boldbold</b><b>boldboldbold</b>"
+# print(re.search('<b>.*?</b>', str).group()) # <b>bold</b>
+# pattern = re.compile('<b>.*?</b>')
+# print(pattern.search(str).group()) # <b>bold</b>
+
+# # 正则demo
+# f = open('./xxx.html', 'rb')
+# data = f.read().decode('utf-8')
+# f.close()
+# pattern = re.compile('<img src="https://img\d\.doubanio.com/mpic/\w+\.jpg"/>')
+# with open('./img.html', 'w') as f:
+#   f.writelines(pattern.findall(data))
+
 
 ## web demo
+# 注意爬虫网页时，浏览器elements面板显示的可能和网页源代码不一致，比如table没写tbody，但是elements面板可能有，因为为了确保网页在不同的浏览器中能够尽可能一致地被解析和显示，
+
+
+# beautifulsoup4 从网页抓取数据
+# BeautifulSoup(markup, "html.parser") # html.parser是默认内置解析器，更推荐解析器lxml (pip3 install beautifulsoup4 lxml)
+with open('./baiduyunpan.html', 'rb') as f:
+    html_doc = f.read().decode('utf-8')
+from bs4 import BeautifulSoup
+soup = BeautifulSoup(html_doc, 'lxml')
+# print(type(soup)) # <class 'bs4.BeautifulSoup'>
+# print(soup.prettify()) # html美化
+
+# print(soup.link)
+# print(soup.link.attrs.href) # AttributeError: 'dict' object has no attribute 'href'
+# print(soup.link.attrs["href"]) # https://nd-static.bdstatic.com/m-static/v20-main/favicon-main.ico
+
+# print(soup.title) # <title>百度网盘 - 视频播放</title>
+# print(soup.title.string) # 百度网盘 - 视频播放
+# print(soup.title.text) # 百度网盘 - 视频播放
+# print(soup.title.get_text()) # 百度网盘 - 视频播放
+
+# bs4.find - 只匹配一条
+# print(soup.find('p', attrs={"id": "vjs_video_596_component_836_description"}))
+# print(soup.find('p', id="vjs_video_596_component_836_description"))
+# print(soup.find('div', class="vp-personal-video-container aichat-width")) # SyntaxError: invalid syntax
+# print(soup.find('div', class_="vp-personal-video-container aichat-width")) # class需要特殊处理
+# print(soup.find('div', class_="vp-img-container").img.attrs)
+
+# string/text/get_text/stripped_strings区别
+# print(soup.find('div', attrs={"class": "vp-dialog__footer"}).string) # None
+# print(soup.find('div', class_="vp-dialog__footer").string) # None
+# print(soup.find('div', class_="vp-dialog__footer").text) # 取消确认 (紧接着一空行)
+# print(repr(soup.find('div', class_="vp-dialog__footer").text)) # '取消确认\n'
+# print(soup.find('div', class_="vp-dialog__footer").get_text()) # 取消确认 (紧接着一空行)
+# print(soup.find('div', class_="vp-dialog__footer").strings) # <generator object Tag._all_strings at 0x10eb8bd30>
+# print(list(soup.find('div', class_="vp-dialog__footer").strings)) # ['取消', '确认', '\n']
+# print(list(soup.find('div', class_="vp-dialog__footer").stripped_strings)) # ['取消', '确认'] - 会过滤掉空白文本
+# print(soup.find('div', class_="vp-dialog__footer").contents)
+# # [<button class="vp-btn week is-round" type="button"><!-- --><span>取消</span></button>, <button class="vp-btn primary is-round vp-dialog__footer-right-btn" type="button"><!-- --><span>确认</span></button>, '\n']
+
+# 匹配所有 find_all
+# print(soup.find_all('img')[0:2]) # 获取前两张图片
+# print(soup.find_all('img', limit=2))
+# 获取a和img标签
+# print(soup.find_all(['img', 'a']))
+
+# select选择器
+print(soup.select('.vp-dialog__footer'))
+
+# xpath解析
