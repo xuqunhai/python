@@ -905,6 +905,10 @@ export function createPatchFunction(backend) {
       isInitialPatch = true;
       createElm(vnode, insertedVnodeQueue);
     } else {
+      // 所有的真实 DOM 节点都会有一个 nodeType 属性，而虚拟节点（VNode）则没有。
+      /*
+      isRealElement 会为 false 应用场景：组件更新/虚拟节点的渲染
+      */
       const isRealElement = isDef(oldVnode.nodeType);
       if (!isRealElement && sameVnode(oldVnode, vnode)) {
         // patch existing root node
@@ -914,6 +918,10 @@ export function createPatchFunction(backend) {
           // mounting to a real element
           // check if this is server-rendered content and if we can perform
           // a successful hydration.
+          /*      
+          isRealElement 为 true 表示 oldVnode 是一个真实的 DOM 元素。这种情况主要发生在 Vue 实例挂载到一个真实的 DOM 元素上，或者 Vue 正在接管服务端渲染的静态内容时。
+          */
+          // 当页面是由服务器渲染的，并且 Vue 在客户端接管时，尝试进行 hydration 操作。
           if (oldVnode.nodeType === 1 && oldVnode.hasAttribute(SSR_ATTR)) {
             oldVnode.removeAttribute(SSR_ATTR);
             hydrating = true;
@@ -953,16 +961,23 @@ export function createPatchFunction(backend) {
         );
 
         // update parent placeholder node element, recursively
+        // 更新父节点占位符元素，确保组件树中的所有父级引用都正确更新。
         if (isDef(vnode.parent)) {
+          // vnode.parent 指的是 ChildComponent 在父组件 ParentComponent 中的占位符 VNode。
           let ancestor = vnode.parent;
+          // 是否有对应的 DOM 元素标签
           const patchable = isPatchable(vnode);
           while (ancestor) {
             for (let i = 0; i < cbs.destroy.length; ++i) {
+              // 负责在组件树更新时执行一些清理操作
               cbs.destroy[i](ancestor);
             }
+            // 将当前 vnode 的 DOM 元素引用更新到所有祖先节点。
+            // 这确保了祖先节点的 DOM 引用与实际渲染的内容保持一致。
             ancestor.elm = vnode.elm;
             if (patchable) {
               for (let i = 0; i < cbs.create.length; ++i) {
+                // 处理属性、事件监听器等。
                 cbs.create[i](emptyNode, ancestor);
               }
               // #6513
@@ -972,6 +987,7 @@ export function createPatchFunction(backend) {
               if (insert.merged) {
                 // start at index 1 to avoid re-invoking component mounted hook
                 for (let i = 1; i < insert.fns.length; i++) {
+                  // 处理节点插入到 DOM 之后的逻辑，例如动画或焦点管理。
                   insert.fns[i]();
                 }
               }
@@ -983,6 +999,13 @@ export function createPatchFunction(backend) {
         }
 
         // destroy old node
+        // 当新的 VNode 替换了旧的 VNode 后，移除旧的 DOM 元素或调用旧 VNode 的销毁钩子。如使用 v-if 切换不同的组件时。
+        /*
+        parentElm 没有定义，这通常发生在以下几种情况：
+        独立的 Vue 组件（例如，通过 new Vue({...}) 创建并挂载的组件）被销毁时，因为销毁动作是从组件自身开始的，而不是通过从父 DOM 元素中移除来实现的。
+        虚拟 DOM 节点的程序化处理：直接操作虚拟 DOM，创建和销毁虚拟节点
+        SSR（服务端渲染）场景组件会生成虚拟 DOM，但是由于在服务器端，并没有真实的 DOM 环境
+        */
         if (isDef(parentElm)) {
           removeVnodes([oldVnode], 0, 0);
         } else if (isDef(oldVnode.tag)) {
@@ -991,6 +1014,7 @@ export function createPatchFunction(backend) {
       }
     }
 
+    // 调用插入钩子
     invokeInsertHook(vnode, insertedVnodeQueue, isInitialPatch);
     return vnode.elm;
   };
