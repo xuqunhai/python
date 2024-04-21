@@ -36,13 +36,15 @@ def write_into_db(data):
         db.rollback()
 
 
-db = pymysql.connect(user='ahui', password='182182aA', host='43.138.31.29', port=3306, charset='utf8', database='my_test')
+db = pymysql.connect(user='root', password='root', host='127.0.0.1', port=3306, charset='utf8', database='my_test')
 cursor = db.cursor()
 
+import ssl
+ssl._create_default_https_context = ssl._create_unverified_context
 session = requests.Session()
 session.headers[
     'User-Agent'] = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/106.0.0.0 Safari/537.36'
-url = 'https://www.3dst.cn/t/lizhigushi/'
+url = 'http://3dst.com/t/lizhigushi/'
 
 response = session.get(url)
 tree = etree.HTML(response.content.decode('utf-8'))
