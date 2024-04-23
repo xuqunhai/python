@@ -1,4 +1,5 @@
 """
+web server gateway Interface
 WSGI config for learn project.
 
 It exposes the WSGI callable as a module-level variable named ``application``.
