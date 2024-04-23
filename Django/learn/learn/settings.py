@@ -27,12 +27,13 @@ SECRET_KEY = 'django-insecure-36i97d3d*th2an8%8a&-a4u6%bjhk!2u)@p%0)&z7w$h5bpj+i
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-# ALLOWED_HOSTS 定义了哪些域名可以访问此 Django 站点。如果为空，仅在本地开发时可用。
+# ALLOWED_HOSTS 定义了哪些域名可以访问此 Django 站点。如果为空，仅在本地开发时可用。(localhost/127.0.0.1)
 ALLOWED_HOSTS = []
+# 允许被其他机器访问时，启动服务 ./manage.py runserver 0.0.0.0:port
 
 
 # Application definition
-# INSTALLED_APPS 列表包含了项目中启用的所有 Django 应用。
+# INSTALLED_APPS 列表包含了项目中启用的所有 Django 应用。注册自定义应用
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -40,6 +41,10 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'index',
+    'music',
+    'sport',
+    'news',
 ]
 
 # MIDDLEWARE 列表定义了一系列的中间件类，这些中间件是在请求处理的过程中按顺序执行的。

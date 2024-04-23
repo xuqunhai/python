@@ -1,4 +1,10 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
+"""
+启动：python3 manage.py runserver 0.0.0.0:8000
+(./manage.py runserver 这样启动需要修改manage.py 的python解释器版本)
+#!/usr/bin/env python -> 
+#!/usr/bin/env python3
+"""
 """Django's command-line utility for administrative tasks."""
 """描述了这个脚本的用途：作为Django的命令行工具，用于执行管理任务。"""
 import os

@@ -1,5 +1,9 @@
 一个典型的 Django 项目由多个文件和目录组成，每个部分都承担着特定的功能和职责。以下是常见的文件和目录及其作用：
 
+# 创建项目
+- 使用django-admin 创建django项目
+- 语法：django-admin startproject 项目名称(TestDjango)
+
 # 基本结构
 - manage.py:
 这是一个命令行工具，允许你以命令行方式与 Django 项目交互。例如，你可以用它来启动服务器、创建应用、执行数据库迁移等。
@@ -13,6 +17,12 @@ u- rls.py:
 项目的 URL 声明，即 Django 项目的“目录”。它告诉 Django 哪些模式被视为 URL，并将它们映射到相应的视图函数。
 - wsgi.py:
 一个 WSGI 兼容的 Web 服务器的入口以便运行你的项目。这个文件用于帮助你的项目与 Web 服务器接口，如 Gunicorn 或 uWSGI。
+
+# 创建应用
+- 在django中，主目录一般不处理具体的请求，主目录一般处理项目的初始化操作以及请求的分发(分布式请求处理)，而具体的请求是由各个应用去处理
+1. 指令: python3 manage.py startapp 应用名称
+2. 在setting.py: INSTALLED_APPS中追加应用的名称来表示注册应用
+3. 分布式路由系统： 在每个应用中分别创建urls.py格式和主路由文件一样. 访问路径为：host:port/apps/path
 
 # 应用目录（每个 Django 应用有自己的目录，例如 app）:
 - Django 项目可以包含多个应用，每个应用都有其独立的功能模块。
