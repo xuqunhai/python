@@ -7,4 +7,10 @@ def run2_views(request, p1, p2):
   return HttpResponse(f'{p1},{p2}')
 
 def test_views(request):
-  return '<h1>666</h1>'
+  return HttpResponse('<h1>666</h1>')
+
+def default_views(request):
+  return HttpResponse('default')
+
+def login_views(request):
+  return HttpResponse('login')

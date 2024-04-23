@@ -42,4 +42,6 @@ urlpatterns = [
     re_path(r'^music/', include('music.urls')),
     re_path(r'^run/(\d{4})/(\d{2})/$', run2_views),
     re_path(r'^user/(?P<user_id>\d+)/$', test_views, name='user-profile'),
+    re_path(r'^$', default_views),
+    re_path(r'^.*$', login_views),
 ]
