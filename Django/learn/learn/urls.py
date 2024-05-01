@@ -34,10 +34,12 @@ import * 表示导入目标模块中定义的所有公共对象。公共对象�
 re_path(r'^home/$', views.home, name='home') 使用了 re_path()，它允许你继续使用正则表达式定义复杂的 URL 模式。
 """
 
-app_name = 'myapp'
+app_name = 'learn'
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('run/', run_views),
+    path('rx/', rx_views),
+    path('rxstat/', rxstat_views), # http://127.0.0.1:8000/rxstat/
     # path('music/', include('music.urls')),
     re_path(r'^music/', include('music.urls')),
     re_path(r'^run/(\d{4})/(\d{2})/$', run2_views),

@@ -11,7 +11,7 @@ https://docs.djangoproject.com/en/5.0/ref/settings/
 """
 
 from pathlib import Path
-
+import os
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 # 使用 Path(__file__) 获取当前文件的路径，然后调用 resolve() 来解析为绝对路径，并通过连续调用两次 parent 属性来获取项目的根目录。
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -63,8 +63,11 @@ ROOT_URLCONF = 'learn.urls' # 指定了项目的根 URL 配置模块
 # 定义了 Django 如何加载和渲染模板。包括使用的后端、模板文件的位置和上下文处理器等。
 TEMPLATES = [
     {
+        # 指定模版引擎
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [os.path.join(BASE_DIR, 'templates')],
+        # 全局模板目录：这是在项目的 settings.py 文件中通过 TEMPLATES 设置中的 DIRS 选项指定的目录。通常，这个目录被设置在项目的根目录下的 templates 文件夹中。
+        # 应用模板目录：如果你在 TEMPLATES 设置中将 APP_DIRS 设置为 True，Django 也会在每个应用的 templates 子目录中查找模板。这意味着你可以将模板放置在各自应用的 templates 文件夹中。
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -126,7 +129,8 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.0/howto/static-files/
 # 静态文件的 URL 前缀。
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
+STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field

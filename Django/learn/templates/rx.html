@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+  <body>
+    {% load static %}
+    <h1>index template {{variable}}</h1>
+    <p>tup: {{tup.0}}</p>
+    {% comment %}
+    服务器端被注释内容不会被渲染到客户端
+    模版里对列表或元组取值需要用.x，不能用[]
+    {% endcomment %}
+    <p>list: {{list.0}}</p>
+    <p>func: {{func}}</p>
+
+    <ul>
+      {% for item in list %}
+      <li>{{forloop.counter}}:{{item}}:{{forloop.counter0}}:{{forloop.first}}:{{forloop.last}}</li>
+      {% endfor %}
+    </ul>
+    <ol>
+      {% for item in tup %}
+      <li>{{item|upper}}:{{item|lower}}</li>
+      {% endfor %}
+      {% comment %}
+      其他常用过滤器:
+      value|floatformat:n 将value四舍五入到n位小数
+      value|truncatechars:n 将value街区保留至n位字符
+      {% endcomment %}
+    </ol>
+    <img src="{% static 'images/global.jpg' %}" alt="Global Example Image">
+    {% comment %} 在这些例子中，{% static 'path' %} 会自动将 STATIC_URL 和指定的相对路径组合起来，生成完整的 URL。 {% endcomment %}
+    <dl>
+      <dt>func result:</dt>
+      {% if func > 0 %}
+        <dd>大于0</dd>
+      {% elif func < 0 %}
+        <dd>小于0</dd>
+      {% else %}
+        <dd>等于0</dd>
+      {% endif %}
+    </dl>
+  </body>
+  </html>
