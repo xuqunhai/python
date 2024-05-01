@@ -40,7 +40,7 @@ urlpatterns = [
     path('run/', run_views),
     path('rx/', rx_views),
     path('rxstat/', rxstat_views), # http://127.0.0.1:8000/rxstat/
-    # path('music/', include('music.urls')),
+    re_path(r'^', include('index.urls')),
     re_path(r'^music/', include('music.urls')),
     re_path(r'^run/(\d{4})/(\d{2})/$', run2_views),
     re_path(r'^user/(?P<user_id>\d+)/$', test_views, name='user-profile'),
