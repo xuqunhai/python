@@ -3,6 +3,11 @@
 # b = int(a)
 # print(type(b)) # <class 'int'>
 
+# 注释
+# '''
+# xxx
+# '''
+
 # if第一种写法
 # if b > 100:
 #   print('播哥')
@@ -2676,7 +2681,7 @@
 # 裁剪了大部分标准库，仅保留部分模块如math、sys的部分函数和类。此外，很多标准模块如json、re等在MicroPython中变成了以u开头的ujson、ure，表示针对MicroPython开发的标准库。
 
 # 正则
-import re
+# import re
 
 # search 只匹配一次，
 # print(re.search("1[3-9][0-9]{9}", "15111111111")) # <re.Match object; span=(0, 11), match='15111111111'>
@@ -2759,10 +2764,14 @@ import re
 
 # beautifulsoup4 从网页抓取数据
 # BeautifulSoup(markup, "html.parser") # html.parser是默认内置解析器，更推荐解析器lxml (pip3 install beautifulsoup4 lxml)
-with open('./baiduyunpan.html', 'rb') as f:
-    html_doc = f.read().decode('utf-8')
-from bs4 import BeautifulSoup
-soup = BeautifulSoup(html_doc, 'lxml')
+# from bs4 import BeautifulSoup
+# with open('./baiduyunpan.html', 'rb') as f:
+#     html_doc = f.read().decode('utf-8')
+# soup = BeautifulSoup(html_doc, 'lxml')
+
+# from bs4 import BeautifulSoup
+# soup = BeautifulSoup(open('./baiduyunpan.html', 'r', encoding='UTF-8'), 'lxml')
+
 # print(type(soup)) # <class 'bs4.BeautifulSoup'>
 # print(soup.prettify()) # html美化
 
@@ -2794,13 +2803,326 @@ soup = BeautifulSoup(html_doc, 'lxml')
 # print(soup.find('div', class_="vp-dialog__footer").contents)
 # # [<button class="vp-btn week is-round" type="button"><!-- --><span>取消</span></button>, <button class="vp-btn primary is-round vp-dialog__footer-right-btn" type="button"><!-- --><span>确认</span></button>, '\n']
 
-# 匹配所有 find_all
+# 匹配所有 find_all，找不到返回空列表（find找不到返回None）
 # print(soup.find_all('img')[0:2]) # 获取前两张图片
 # print(soup.find_all('img', limit=2))
 # 获取a和img标签
 # print(soup.find_all(['img', 'a']))
+# print(soup.find_all(id=True)) # 有id的节点
+# 同时有class和id
+# print(soup.find_all('b', class_="story", id="x"))
+# print(soup.find_all('b', attrs={"class": "story", "id": "x"}))
+# print(soup.find_all('p')[-1].string)
+
+# list = soup.find_all('li')
+# for li in list:
+#   title = li.a.string
+#   print(li.find('span', class_="color-lightgroy").string)
+#   print(li.select('.hose-name>a')[0].text)
 
 # select选择器
-print(soup.select('.vp-dialog__footer'))
+# print(soup.select('.vp-dialog__footer'))
+# print(soup.select("a[href='xxx']"))
 
 # xpath解析
+# /从根节点选取，绝对路径
+# //不考虑位置，匹配选择。选取所有li元素 //li
+# ./基于当前节点再次进行选取。选择当前对象里第一个div节点 节点对象.xpath('./div')
+# @选取属性。选取名为hre的所有属性//@href
+
+# pip install lxml -i pip源
+# from lxml import etree
+
+# f = open('./baiduyunpan.html', 'r', encoding='UTF-8')
+# content = f.read()
+# f.close()
+# html_tree=etree.HTML(content) # 适合本地和网络html，所以推荐使用
+# print(html_tree) # <Element html at 0x102b9f480>
+# 下面parse方法只适合本地html文件，所以推荐上面HTML()
+# parser=etree.HTMLParser(encoding="utf-8")
+# tree=etree.parse('./baiduyunpan.html', parser=parser)
+
+# tree = etree.HTML(open('./xx.html', 'r', encoding='UTF-8').read())
+# res = tree.xpath('/html/body/div/div[1]/div/a/text()') # 获取第一个，xpath从1开始
+# # re = tree.xpath('/html/body/div/div/div/a)
+# # res = res[0].xpath('./text()')
+# for e in res:
+#     print(etree.tostring(e,encoding='UTF-8').decode('UTF-8'))
+
+# res = tree.xpath('//ul[@class="xxx"]/li//img/@src')
+# 注意，res[0].xpath('//text()')和tree.xpath('//text()')等价
+# 也就是//在最前面会忽略.xpath前面，而如果在中间则有效
+
+# 指定第几个
+# # 倒数第二个li
+# res = tree.xpath('//ul[@class="xxx"]/li[last()-1]')
+# # 前两个
+# res = tree.xpath('//ul[@class="xxx"]/li[position()<3]')
+
+# @attr属性
+# # 获取所有src属性
+# res = tree.xpath('//@src')
+# # 获取带有src的img
+# res = tree.xpath('//img[@src]')
+# # 获取img的src
+# res = tree.xpath('//img/@src')
+
+# 判断
+# res = tree.xpath('//a[@title="xxx"]')
+# res = tree.xpath('//a[@price<="10"]')
+
+# 通配符使用
+# # 获取所有具有price属性的标签
+# res = tree.xpath('//*[@price]')
+
+# 或与
+# res = tree.xpath('//a[@title="xxx"] | //a[@price<="10"]')
+# res = tree.xpath('//a[@title="xxx"] and //a[@price<="10"]')
+
+# 包含关系
+# # div的class属性包含div的节点内容
+# res = tree.xpath('//div[contains(@class, "div1")]//text()')
+# # div的calss属性以div开始的节点内容
+# res = tree.xpath('//div[starts-with(@class, "div")]//text()')
+
+
+# 案例
+# # 大学排名
+# from lxml import etree
+# tree = etree.HTML(open('./xxx.html', 'r', encoding='UTF-8').read())
+# res = tree.xpath('//table[@class="xxx x"]//tr')
+# for tr in res:
+#   tdText = tr.xpath('./td//text()')
+
+# # 匹配天气
+# from lxml import etree
+# tree = etree.HTML(open('./xxx.html', 'r', encoding='UTF-8').read())
+# res = tree.xpath('//table')
+# for t in res:
+#   tr = t.xpath('./tr')[2:] # 去除头两个标题行
+#   for r in tr:
+#     print(r.xpath('./td//text()'))
+
+# urllib模块
+# import urllib.request
+# url = 'http://www.baidu.com' # https报错：certificate verify failed: unable to get local issuer certificate
+# res = urllib.request.urlopen(url)
+# print(res) # <http.client.HTTPResponse object at 0x102aab3a0>
+# print(type(res)) # <class 'http.client.HTTPResponse'>
+# print(res.getcode()) # 200
+# print(res.geturl()) # http://www.baidu.com
+# print(res.getheaders()) # [('Content-Length', '405863'), 
+# print(res.read().decode('utf-8'))
+
+
+# 图片下载 - 会自动分片下载
+# urllib.request.urlretrieve(remoteImgUrl, filename="local.png")
+
+# # 中文转码
+# url = 'https://www.baidu.com/s?wd=%E8%A9%B9%E5%A7%86%E6%96%AF'
+# print(urllib.request.unquote(url)) # https://www.baidu.com/s?wd=詹姆斯
+# print(urllib.request.quote('詹姆斯')) # %E8%A9%B9%E5%A7%86%E6%96%AF
+
+# 模拟浏览器
+# url = 'http://www.baidu.com/s?'
+# headers = {
+#   'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36'
+# }
+# kw = {
+#   'wd': '詹姆斯'
+# }
+# new_url = url + urllib.parse.urlencode(kw)
+# # print(new_url)
+# request = urllib.request.Request(url=new_url, headers=headers)
+# res = urllib.request.urlopen(request)
+# with open('zms.html', 'w') as f:
+#   f.write(res.read().decode('UTF-8'))
+
+# 模拟POST请求
+# import json
+# headers = {
+#   'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36'
+# }
+# import ssl
+# # 创建一个未验证的SSL上下文来禁用证书验证：
+# # 禁用证书验证应该只用于测试目的或当你完全信任请求的服务时。在生产环境中，应该尽可能地解决证书问题，确保使用安全的HTTPS连接。
+# context = ssl._create_unverified_context()
+# url = 'https://fanyi.baidu.com/langdetect'
+# form_data = {
+#   'query': '勒布朗'
+# }
+# data = urllib.parse.urlencode(form_data).encode('UTF-8')
+# request = urllib.request.Request(url=url, data=data, headers=headers)
+# res = urllib.request.urlopen(request, context=context)
+# print(res.getcode()) # 200
+# print(json.loads(res.read().decode('UTF-8'))) # {'error': 0, 'msg': 'success', 'lan': 'zh'}
+
+# 安装证书
+# pip3 install certifi
+# 更新或安装certifi（所有平台）
+# pip3 install --upgrade certifi
+# 查看CA证书路径
+# import certifi
+# cert_path = certifi.where()
+# print(cert_path) # /Users/xuqunhai/Desktop/python/.venv/lib/python3.12/site-packages/certifi/cacert.pem
+
+# 查看requests库的配置来找到证书的路径
+# import requests
+# print(requests.certs.where()) # /Users/xuqunhai/Desktop/python/.venv/lib/python3.12/site-packages/certifi/cacert.pem
+
+# response常用属性
+# print(res.text) # 类型是str，修改编码方式：response.encoding="UTF-8"
+# print(res.content) # 类型是bytes，修改编码方式：response.content.decode("utf8")
+# print(res.json())
+# print(res.encoding)
+# print(res.url)
+# print(res.cookies)
+# print(res.request.headers)
+# print(res.headers)
+# print(res.status_code)
+# print(res.ok) # status_code<200时True
+
+# 获取html页面通用方式
+# print(res.content.decode()) # 推荐
+# print(res.content.decode('UTF-8'))
+# print(res.text)
+
+
+# requests
+# # 下载图片
+# import requests
+# url = ''
+# headers={}
+# kw = {}
+# res = requests.get(url, params=kw, headers=headers, proxies=proxies) # 请求 
+# # print(res.content.decode('UTF-8'))
+# with open('a.jpg', 'wb') as f:
+#   f.write(res.content) # 写入
+
+# # requests发送post
+# import requests
+# headers={}
+# data={}
+# res = requests.post(url, headers=headers,data=data)
+# print(res.json())
+
+# # 抓取小米商店应用
+# import requests
+# from lxml import etree
+# url = ''
+# headers={
+#   'user-agent': ''
+# }
+# res = requests.get(url, headers=headers)
+# content = res.content.decode()
+# tree = etree.HTML(content)
+# # app_name = tree.xpath('//ul[@class="applist"]/li/h5/a/text()')
+# # app_name = tree.xpath('//ul[@class="applist"]/li/h5/a/@href')
+# a_list = tree.xpath('//ul[@class="applist"]/li/h5/a')
+# for a in a_list:
+#   print(a.xpath('./text()'))
+#   print(a.xpath('./@href'))
+
+# # 代理
+# # 防止真实地址被泄露，模拟不同客户端
+# # 正向代理：客户端与代理在同一局域网，隐藏了真实请求客户端，如VPN，服务器不知道真实的客户端是谁
+# # 反向代理：服务器和代理在同一局域网，隐藏了真实服务器，如nginx，客户端不知道真正提供服务的是谁
+# 代理平台：https://www.kuaidaili.com/free
+# import requests
+# proxy = [
+#   {'http': 'http://58.246.58.150:9002'},
+#   {'http': 'http://36.134.91.82:8888'},
+#   {'https': 'https://36.6.144.17:8089'}
+# ]
+# import random
+# proxy = random.choice(proxy) # 随机选择，不要每次都使用同一个ip
+# result = requests.get("http://httpbin.org/ip", proxies=proxy)
+# print(result.text) # {"origin": "120.229.61.235"}
+
+# # 自动获取解码格式+图片下载
+# import requests
+# res = requests.get(url, headers=headers)
+# res.encoding = res.apparent_encoding
+# data = res.text # data = res.content.decode('UTF-8/GBK')
+# print(data)
+# tree = etree.HTML(data)
+# xxx = tree.xpath('')
+# import time
+# import os
+# path = 'img'
+# if not os.path.exists(path):
+#   os.mkdir(path)
+# i = 0
+# for url in list:
+#   res = requests.get(url, headers=headers)
+#   with open(os.path.join(path, str(i)+'.jpg'), 'wb') as f:
+#     f.write(res.content)
+# i += 1
+# time.sleep(1)
+
+# for i in range(1, 6):
+#   url = f'xxx.${i}.html'
+#   print(url)
+
+# total_num = int(re.search('var countPage = (?P<page>\d+)//共多少页', data, 'page'))
+# pageNum = int(input('请输入要抓取的页码数：'))
+# if pageNum < 0 or pageNum > total_num:
+#   print('请输入正确的页码')
+# else:
+#   for i in range(pageNum):
+#     url = f'${i}'
+#     if i == 0:
+#       url = ''
+#     get_page(url)
+
+
+# 异步加载-加载更多
+# import requests
+# headers={}
+# res = requests.get(url, headers=headers)
+# data={}
+# res = requests.post(url, headers=headers,data=data)
+# print(res.json())
+
+# 携带cookie登录雪球网  抓取完善个人资料页面
+# import requests
+# headers = {
+#     'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
+#     'Referer': 'https://xueqiu.com/',
+#     'Host': 'xueqiu.com',
+# }
+# url = 'https://xueqiu.com/'
+# res = requests.get(url, headers=headers)
+# cookies = res.cookies
+# # print(dict(cookies))
+# listurl = 'https://stock.xueqiu.com/v5/stock/portfolio/stock/list.json?size=1000&category=2&pid=-110'
+# response = requests.get(listurl, headers=headers, cookies=cookies)
+# print(response.status_code) # 200
+
+# # 用Session代替cookie
+# import requests
+# headers = {
+#     'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
+#     'Referer': 'https://xueqiu.com/',
+#     'Host': 'xueqiu.com',
+# }
+# url = 'https://xueqiu.com/'
+# session = requests.Session()
+# session.get(url=url, headers=headers)
+# listUrl = 'https://xueqiu.com/upload/web?category=web_behavior'
+# res = session.post(listUrl, headers=headers)
+# print(res) # <Response [200]>
+# print(res.json()) # {'isSuccess': False, 'retCode': -1}
+
+
+# 破解验证码 - http://www.ttshitu.com/docs/index.html?spm=null
+# import requests
+# code_url = 'https://so.gushiwen.cn/RandCode,ashx'
+# headers = {}
+# res = requests.get(code_url, headers=headers)
+# with open('xxx.jpg', 'wb') as f:
+#   f.write(res.content)
+# img_path = './xxx.jpg'
+# result = base64_api(uname='', pwd='', img=img_path, typeid=3)
+# print(result)
+
