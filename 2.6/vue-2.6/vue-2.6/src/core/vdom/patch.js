@@ -134,18 +134,22 @@ export function createPatchFunction(backend) {
     ownerArray,
     index
   ) {
-    // 如果这个 VNode 在之前的渲染中已经被使用（即 vnode.elm 已经定义）并且它是从 ownerArray 中来的
+    // 当同一个虚拟节点 (vnode) 需要在多个位置使用时。比如在 v-for 列表渲染中的复用情况。
     if (isDef(vnode.elm) && isDef(ownerArray)) {
       // This vnode was used in a previous render!
       // now it's used as a new node, overwriting its elm would cause
       // potential patch errors down the road when it's used as an insertion
       // reference node. Instead, we clone the node on-demand before creating
       // associated DOM element for it.
-      // 克隆这个 VNode 来避免潜在的 patch 错误。
-      // 这通常发生在被 v-for 渲染的元素被再次使用时。
+      // 如果不克隆 vnode 而直接使用，那么多个 DOM 元素将共享同一个 vnode 实例。这在更新过程中可能导致问题
+      // 在使用 v-for 创建列表时，同一组件或元素可能被实例化多次。如果列表中的数据项目发生变化，Vue 需要能够独立地更新每一个实例。
       vnode = ownerArray[index] = cloneVNode(vnode);
     }
 
+    // 这个节点是否是直接插入到目标容器中，而非作为某个已存在节点的子节点插入。
+    // nested指示当前节点是否作为嵌套节点处理。如果nested是false，则表示该节点不是嵌套的，是一个根节点
+    // Vue的过渡系统允许开发者在元素进入或离开DOM时添加动画效果。为了正确地触发这些过渡效果，Vue需要知道一个节点是否是作为一个独立的操作插入到DOM中的。
+    // 在Vue的组件或元素树中，通常只有根节点需要触发进入的过渡效果。嵌套元素（例如在组件内部或由指令如v-for创建的元素）可能不应直接触发过渡，因为它们的过渡可能被父级或更高层次的逻辑管理。
     vnode.isRootInsert = !nested; // for transition enter check
     // 处理组件 VNode 组件渲染。
     // 如果这个 VNode 是一个组件，尝试创建组件实例并插入到父元素中。如果创建成功，不再继续后续的 DOM 创建流程。
@@ -184,27 +188,34 @@ export function createPatchFunction(backend) {
 
       /* istanbul ignore if */
       if (__WEEX__) {
+        // 这段代码设计的目的是灵活处理虚拟节点（vnode）的插入时机和创建钩子的调用时机。
+        // appendAsTree决定了 vnode 是否应该立即插入 DOM 树中。比如在特定的框架管理的过渡或动画过程中，或者某些需要延迟插入的情况。
         // in Weex, the default insertion order is parent-first.
         // List items can be optimized to use children-first insertion
         // with append="tree".
         const appendAsTree = isDef(data) && isTrue(data.appendAsTree);
         if (!appendAsTree) {
+          // 这种情况适用于大多数标准的 vnode 创建过程，其中节点可以立即插入，并且在其子节点被处理前，适用于需要立即渲染单个元素的情况。
           if (isDef(data)) {
+            // 触发所有相关的创建钩子。
             invokeCreateHooks(vnode, insertedVnodeQueue);
           }
           insert(parentElm, vnode.elm, refElm);
         }
-        createChildren(vnode, children, insertedVnodeQueue);
+        createChildren(vnode, children, insertedVnodeQueue); // 整构建整个子树，创建所有子节点。
         if (appendAsTree) {
+          // 适用于需要先完整构建整个子树，然后再一次性插入到 DOM 中去的情况，在动态内容较多的大型应用中。
           if (isDef(data)) {
             invokeCreateHooks(vnode, insertedVnodeQueue);
           }
-          insert(parentElm, vnode.elm, refElm);
+          insert(parentElm, vnode.elm, refElm); // 一次性插入到 DOM 中
         }
       } else {
-        // 创建子元素-递归地为所有子 VNode 创建 DOM 元素并插入到当前节点中。-嵌套元素渲染。
+        // 当一个父 vnode 需要被实例化为一个真实的 DOM 元素时，它的子 vnode 们也需要被递归地转换成真实的 DOM 子元素
+        // insertedVnodeQueue 收集在整个创建元素过程中已插入的所有 vnode。这个队列重要的用途是之后用于触发插入（insert）钩子。
         createChildren(vnode, children, insertedVnodeQueue);
         if (isDef(data)) {
+          // 在子组件完全创建（包括其所有子 DOM 元素）之后，再触发父组件的创建钩子。
           invokeCreateHooks(vnode, insertedVnodeQueue);
         }
         // 将创建的 DOM 元素插入到父元素中，如果 refElm 定义了，则插入到 refElm 之前。 - 动态元素插入。
@@ -236,16 +247,16 @@ export function createPatchFunction(backend) {
         // 调用这个 init 钩子函数以初始化组件
         i(vnode, false /* hydrating */);
       }
-      // after calling the init hook, if the vnode is a child component
-      // it should've created a child instance and mounted it. the child
-      // component also has set the placeholder vnode's elm.
-      // in that case we can just return the element and be done.
+      // 当组件已经被创建并初始化后，它的实例会被附加到它的虚拟节点的 componentInstance 属性上。
+      // keep-alive 机制组件再次需要渲染时，它们的实例将会从 componentInstance 属性中恢复。
       if (isDef(vnode.componentInstance)) {
-        // 初始化这个组件 VNode，并将组件的根 DOM 元素插入到父元素中。
+        // 组件实例正确初始化
         initComponent(vnode, insertedVnodeQueue);
+        // 组件的根元素（vnode.elm）会被插入到父 DOM 元素（parentElm）中
         insert(parentElm, vnode.elm, refElm);
         if (isTrue(isReactivated)) {
           // 处理重新激活的组件
+          // 为什么需要先初始化再激活？确保了所有的基础设施（如钩子和依赖项）都被正确设置和更新。
           reactivateComponent(vnode, insertedVnodeQueue, parentElm, refElm);
         }
         return true; // 组件已经成功创建
@@ -254,12 +265,22 @@ export function createPatchFunction(backend) {
   }
 
   // 将组件实例的 $el 与组件的虚拟节点关联起来，并执行相关的钩子函数。
+  /*
+  设置组件的占位符（placeholder）元素。
+  初始化相关的钩子和状态。
+  将组件加入到 insertedVnodeQueue 队列中，这个队列负责处理组件的插入相关生命周期钩子（如 mounted）。
+  */
   function initComponent(vnode, insertedVnodeQueue) {
     // 有子组件需要被插入。
     // 在组件创建过程中，子组件可能先于父组件完成初始化，这时子组件的插入操作需要暂时挂起，待父组件准备就绪后再统一处理。
     // 子组件是异步加载,它的初始化和渲染可能会在父组件的初始化和渲染之后完成。
     // Vue 内部通过维护一个插入队列 (insertedVnodeQueue) 来确保所有的子组件在加载和初始化完成后，可以按正确的顺序插入到 DOM 中。
     if (isDef(vnode.data.pendingInsert)) {
+      // 延迟执行插入钩子，直到所有相关的子组件也都准备好被插入到 DOM 中。
+      /*
+      异步组件加载完成时的批量插入：使用 pendingInsert 来收集所有这些组件的 VNodes。这样可以在一个批量操作中插入所有这些节点
+      确保父子组件的钩子顺序：父组件的 mounted 钩子应该在其所有子组件的 mounted 钩子之后执行。延迟父组件的插入钩子的执行，直到所有子组件都插入到 DOM 并执行了它们的 mounted 钩子
+      */
       insertedVnodeQueue.push.apply(
         insertedVnodeQueue,
         vnode.data.pendingInsert
@@ -276,15 +297,21 @@ export function createPatchFunction(backend) {
       invokeCreateHooks(vnode, insertedVnodeQueue);
       setScope(vnode);
     } else {
-      // 对于没有可挂载的根 DOM 元素的组件（例如渲染函数返回空或仅返回注释节点的组件）.例如，一个条件渲染组件，它可能在某些条件下不渲染任何东西：
-      // empty component root.
-      // skip all element-related modules except for ref (#3455)
-      registerRef(vnode);
-      // make sure to invoke the insert hook
+      // 不是一个标准的元素，而是一个需要特别处理的节点时（如文本或注释）
+      registerRef(vnode); // 正确地注册或更新。
+      // 它可能有关联的生命周期钩子需要被触发
       insertedVnodeQueue.push(vnode);
     }
   }
 
+  /*
+  reactivateComponent 作用主要是处理 <keep-alive> 包裹的组件的再激活过程。
+  允许组件在被移除后仍然保存在内存中，并且可以在需要时重新激活而无需重新创建
+  组件重新进入缓存状态：
+  重新调用激活相关的钩子（如 activated）。
+  重新绑定必要的资源或侦听器。
+  更新组件状态以反映新的上下文。
+  */
   function reactivateComponent(vnode, insertedVnodeQueue, parentElm, refElm) {
     let i;
     // hack for #4339: a reactivated component with inner transition
@@ -298,6 +325,8 @@ export function createPatchFunction(backend) {
         for (i = 0; i < cbs.activate.length; ++i) {
           cbs.activate[i](emptyNode, innerNode);
         }
+        // insertedVnodeQueue存放所有已插入但还未调用 insert 钩子的 vnode。
+        // 在更新周期的最后，Vue 的渲染引擎会遍历这个队列，并为每一个 vnode 调用相应的 mounted 或 activated 钩子。这些钩子是组件生命周期的一部分，对于那些依赖于 DOM 的操作，如操作插件或第三方库初始化，非常关键。
         insertedVnodeQueue.push(innerNode);
         break;
       }
@@ -308,12 +337,17 @@ export function createPatchFunction(backend) {
   }
 
   function insert(parent, elm, ref) {
+    // 确保只在有效的容器内插入新元素，避免在不存在的或未定义的节点上执行操作，这可能会导致运行时错误。
     if (isDef(parent)) {
+      // 提供了ref节点
       if (isDef(ref)) {
+        // 当有多个相似的父节点或可能的ref节点位于不同的父元素中时，这个检查防止了将元素插入到错误的位置。
         if (nodeOps.parentNode(ref) === parent) {
+          // 在父节点parent中的ref节点之前插入新元素elm。
           nodeOps.insertBefore(parent, elm, ref);
         }
       } else {
+        // 直接作为最后一个子节点插入
         nodeOps.appendChild(parent, elm);
       }
     }
@@ -343,8 +377,7 @@ export function createPatchFunction(backend) {
     }
   }
 
-  // 确保无论组件嵌套了多少层，都能找到与之对应的实际 DOM 元素的 VNode。
-  // 准确地更新 DOM,正确地更新每个组件。
+  //  检查 VNode 是否有一个有效的标签名或者一个组件实例。如果 VNode 代表一个普通的 HTML 元素或一个组件，那么它就可以通过 Vue 的渲染流程被创建、更新或修复。如果不是，那么这个节点可能只是一个简单的文本节点或其他非元素节点，这种情况下它不需要涉及常规的创建和更新钩子。
   function isPatchable(vnode) {
     // 每个组件实例的 componentInstance 属性指向其子组件的实例。
     // 每个组件实例的 _vnode 属性代表了该组件的根虚拟节点（VNode）。
@@ -611,7 +644,9 @@ export function createPatchFunction(backend) {
         newStartVnode = newCh[++newStartIdx];
       }
     }
+
     if (oldStartIdx > oldEndIdx) {
+      // 说明old遍历完了，new没遍历的直接添加addVnodes
       refElm = isUndef(newCh[newEndIdx + 1]) ? null : newCh[newEndIdx + 1].elm;
       addVnodes(
         parentElm,
@@ -622,6 +657,7 @@ export function createPatchFunction(backend) {
         insertedVnodeQueue
       );
     } else if (newStartIdx > newEndIdx) {
+      // 说明new遍历完了，old没遍历完的直接删除removeVnodes
       removeVnodes(oldCh, oldStartIdx, oldEndIdx);
     }
   }
@@ -676,13 +712,15 @@ export function createPatchFunction(backend) {
 
     const elm = (vnode.elm = oldVnode.elm);
 
-    // 处理异步占位符
+    // 在上一个渲染周期中，相关的异步组件尚未加载完成
     if (isTrue(oldVnode.isAsyncPlaceholder)) {
+      // 在当前周期已经加载并解析完成
       if (isDef(vnode.asyncFactory.resolved)) {
         // 如果旧 VNode 是一个异步占位符，并且对应的异步组件已经解析完成，那么通过 hydrate 函数进行节点的更新。
         // 在使用动态导入（如 import()）加载 Vue 组件时，Vue 需要先渲染一个占位符，待组件加载完成后再替换为真实内容。
         hydrate(oldVnode.elm, vnode, insertedVnodeQueue);
       } else {
+        // 如果在下一个渲染周期该组件仍未加载完成，通过 vnode.isAsyncPlaceholder = true 继续维持其等待状态。
         vnode.isAsyncPlaceholder = true;
       }
       return;
@@ -693,15 +731,21 @@ export function createPatchFunction(backend) {
     // if the new node is not cloned it means the render functions have been
     // reset by the hot-reload-api and we need to do a proper re-render.
     // 静态树的重用
+    /*
+    isCloned
+     使用 v-for 时克隆静态节点，优化渲染过程通过克隆已有的静态 VNode。
+     当使用 v-if 和 v-else 时，为了优化渲染过程，Vue 可能会克隆现有的节点，特别是在这些节点是静态的情况下。
+    */
     if (
       isTrue(vnode.isStatic) &&
       isTrue(oldVnode.isStatic) &&
       vnode.key === oldVnode.key &&
       (isTrue(vnode.isCloned) || isTrue(vnode.isOnce))
     ) {
-      //  都是静态的（不会改变的），且具有相同的 key
-      // 重用旧节点的组件实例。
-      // 适用于不依赖父组件数据，且不会改变的子组件或 DOM 结构，如静态的页脚、侧边栏导航等。
+      // vnode.componentInstance 保存的是一个组件实例。包含了组件的所有属性、方法、数据、计算属性和观察者。
+      // 何时会赋值给 vnode.componentInstance
+      // 组件初始化：组件的 init 钩子被调用时
+      // 组件更新：不需要在每次更新时重新实例化，同时保留已有的状态和生命周期。
       vnode.componentInstance = oldVnode.componentInstance;
       return;
     }
@@ -754,7 +798,18 @@ export function createPatchFunction(backend) {
   function invokeInsertHook(vnode, queue, initial) {
     // delay insert hooks for component root nodes, invoke them after the
     // element is really inserted
+    // 初次创建和插入流程的一部分，而非后续的更新或重渲染。
     if (isTrue(initial) && isDef(vnode.parent)) {
+      // 暂时推迟子组件的 insert 钩子调用，直到父组件的挂载过程也完成。
+      /*
+      为什么不统一直接遍历 queue 调用 insert？
+      1、如果立即执行所有 insert 钩子，可能会导致子组件的钩子在父组件的钩子之前执行。
+      2、某些依赖于完整 DOM 树的操作（如尺寸计算、外部库集成等）需要在整个组件树稳定后执行
+      具体应用场景
+      1、组件A包含子组件B和C：A可能需要读取B和C渲染后的尺寸或状态来进行某些计算。
+      2、使用<keep-alive>：如果B或C从缓存中恢复时需要重新计算或重渲染，确保它们的 insert 钩子在A的对应逻辑之后运行是很重要的。
+      3、服务器端渲染（SSR）：在SSR期间，如 mounted 不会被调用，因为没有真实的DOM环境。但在客户端激活（hydration）过程中，这些钩子的正确调用顺序对于应用能否正确无缝接管服务器渲染的内容至关重要。
+      */
       vnode.parent.data.pendingInsert = queue;
     } else {
       for (let i = 0; i < queue.length; ++i) {
@@ -771,23 +826,27 @@ export function createPatchFunction(backend) {
   const isRenderedModule = makeMap("attrs,class,staticClass,staticStyle,key");
 
   // Note: this is a browser-only function so we can assume elms are DOM nodes.
+  // 主要职责是将服务器渲染的 HTML 与客户端生成的虚拟 DOM (VNode) 进行“激活”或同步，确保它们能够无缝对接并交由 Vue 管理
   function hydrate(elm, vnode, insertedVnodeQueue, inVPre) {
     let i;
     const { tag, data, children } = vnode;
-    inVPre = inVPre || (data && data.pre);
-    vnode.elm = elm;
+    inVPre = inVPre || (data && data.pre); // 确定是否需要跳过标准化过程，通常用于预处理指令。
+    vnode.elm = elm; // 设置为对应的真实 DOM 元素 elm。
 
+    // 是一个注释节点并且关联了异步工厂（异步组件），则将其标记为异步占位符。
     if (isTrue(vnode.isComment) && isDef(vnode.asyncFactory)) {
       vnode.isAsyncPlaceholder = true;
       return true;
     }
     // assert node match
     if (process.env.NODE_ENV !== "production") {
+      // 确保服务器渲染的 HTML 节点与客户端的 VNode 匹配
       if (!assertNodeMatch(elm, vnode, inVPre)) {
         return false;
       }
     }
     if (isDef(data)) {
+      // 处理组件初始化：
       if (isDef((i = data.hook)) && isDef((i = i.init)))
         i(vnode, true /* hydrating */);
       if (isDef((i = vnode.componentInstance))) {
@@ -798,8 +857,23 @@ export function createPatchFunction(backend) {
     }
     if (isDef(tag)) {
       if (isDef(children)) {
+        // 虚拟节点（VNode）的子节点
         // empty element, allow client to pick up and populate children
+        /*
+        初始时，<div> DOM 元素（elm）没有子节点，elm.hasChildNodes() 返回 false。
+        当 show 变为 true 后，vnode.children 将包含一个新的 <p> 虚拟节点。
+        Vue 检测到 elm.hasChildNodes() 为 false 而 vnode.children 非空，会创建新的 <p> DOM 元素并将其插入到 <div> 中。
+        确保虚拟 DOM 和实际 DOM 之间保持同步，从而准确反映应用的状态和结构。
+        */
         if (!elm.hasChildNodes()) {
+          // 对应真实 DOM 元素是否有子节点
+          // 表示当前的 DOM 元素没有子节点。
+          /*
+          如果服务器渲染的 HTML 结构中某个元素应该包含子元素但实际上并没有渲染出子元素
+          对于静态内容或使用条件渲染的组件（如 v-if，v-for 可能未渲染任何内容），在特定条件下可能没有生成任何子节点。
+          初次渲染的元素在初始状态可能没有子节点，尤其是在数据依赖异步获取的情况下。
+          */
+          // 如果存在子节点（children），函数将检查 DOM 中是否有现有的子节点。如果没有，将创建新的子节点。
           createChildren(vnode, children, insertedVnodeQueue);
         } else {
           // v-html and domProps: innerHTML
@@ -809,6 +883,8 @@ export function createPatchFunction(backend) {
             isDef((i = i.innerHTML))
           ) {
             if (i !== elm.innerHTML) {
+              // 表示服务器渲染的 HTML 与客户端应该渲染的 HTML 存在差异
+              //  SSR 场景 | 富文本内容的组件。
               /* istanbul ignore if */
               if (
                 process.env.NODE_ENV !== "production" &&
@@ -824,6 +900,7 @@ export function createPatchFunction(backend) {
             }
           } else {
             // iterate and compare children lists
+            // 已有子节点，函数会递归地对每个子节点调用 hydrate，确保每个子节点都被正确激活。
             let childrenMatch = true;
             let childNode = elm.firstChild;
             for (let i = 0; i < children.length; i++) {
@@ -838,6 +915,15 @@ export function createPatchFunction(backend) {
             }
             // if childNode is not null, it means the actual childNodes list is
             // longer than the virtual children list.
+            // 对比和验证 DOM 与 VNode 的一致性：
+            /*
+            childrenMatch 可能被设置为 false 的情况：
+            DOM 节点与 VNode 不匹配：意味着当前的子节点与预期的虚拟节点不一致。
+            子节点数量不足：实际的 DOM 子节点数量少于 VNode 列表中的节点数量
+
+            childNode 仍然存在的情况：意味着 DOM 中还有未被处理的额外节点。由于服务器渲染的内容包含了不应该出现的额外元素，或者客户端的虚拟 DOM 结构在创建时遗漏了一些节点。
+
+            */
             if (!childrenMatch || childNode) {
               /* istanbul ignore if */
               if (
@@ -863,6 +949,7 @@ export function createPatchFunction(backend) {
         for (const key in data) {
           if (!isRenderedModule(key)) {
             fullInvoke = true;
+            // 对于元素节点，遍历 data 并根据需要触发相应的 create 钩子。
             invokeCreateHooks(vnode, insertedVnodeQueue);
             break;
           }
@@ -873,6 +960,7 @@ export function createPatchFunction(backend) {
         }
       }
     } else if (elm.data !== vnode.text) {
+      // 如果当前处理的是文本节点，更新其文本内容。
       elm.data = vnode.text;
     }
     return true;
