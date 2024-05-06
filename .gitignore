@@ -1,7 +1,7 @@
 test
 dist
 *.py[cod]
-.DS*
+.DS_Store
 test.db
 test.txt
 sina.html
