@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Event Order Example</title>
+</head>
+<body>
+    <input type="text" id="inputA" placeholder="Focus on me">
+    <div id="divB" tabindex="0" style="width: 100px; height: 50px; background-color: lightgrey; text-align: center; line-height: 50px;">
+        Click me
+    </div>
+
+    <script>
+        const inputA = document.getElementById('inputA');
+        const divB = document.getElementById('divB');
+
+        // 输入框a的事件处理器
+        inputA.addEventListener('blur', () => console.log('inputA blur'));
+        inputA.addEventListener('focusout', () => console.log('inputA focusout'));
+        inputA.addEventListener('change', () => console.log('inputA change'));
+
+        // divb的事件处理器
+        divB.addEventListener('mousedown', () => console.log('divB mousedown'));
+        divB.addEventListener('focus', () => console.log('divB focus'));
+        divB.addEventListener('focusin', () => console.log('divB focusin'));
+        divB.addEventListener('mouseup', () => console.log('divB mouseup'));
+        divB.addEventListener('click', () => console.log('divB click'));
+        /*
+
+        当用户点击一个可聚焦的元素时（例如一个<button>）：
+          mousedown
+          focus（如果该元素可以获得焦点）
+          focusin（如果该元素可以获得焦点）
+          mouseup
+          click
+          dblclick（如果是双击操作）
+
+        下面打印证明了divB的mosuedown事件在inputA的嫦娥事件后触发
+        divB focus
+          mousedownAndChange.html:25 divB focusin
+          mousedownAndChange.html:23 divB mousedown
+          mousedownAndChange.html:20 inputA change
+          mousedownAndChange.html:18 inputA blur
+          mousedownAndChange.html:19 inputA focusout
+          mousedownAndChange.html:24 divB focus
+          mousedownAndChange.html:25 divB focusin
+          mousedownAndChange.html:26 divB mouseup
+          mousedownAndChange.html:27 divB click
+        */
+    </script>
+</body>
+</html>
