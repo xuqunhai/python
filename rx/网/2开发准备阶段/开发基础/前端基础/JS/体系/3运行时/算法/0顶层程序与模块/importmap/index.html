@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Import Map Example with Polyfill</title>
+    <script
+      async
+      src="https://cdn.jsdelivr.net/npm/es-module-shims@1.4.0/dist/es-module-shims.js"
+    ></script>
+    <script type="importmap">
+      {
+        "imports": {
+          "lodash": "https://cdn.jsdelivr.net/npm/lodash-es/lodash.min.js"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <script type="module">
+      import _ from "lodash";
+
+      console.log(_.join(["Hello", "world"], " "));
+    </script>
+  </body>
+</html>
