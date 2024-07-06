@@ -1,0 +1,1008 @@
+这部分代码涉及一个前端性能监控SDK的实现，主要关注Promise的polyfill、异步任务队列以及数据上报策略。下面是对每个关键部分的详细解释。
+
+### Promise Polyfill
+
+#### finallyConstructor
+
+```javascript
+function finallyConstructor(callback) {
+  var constructor = this.constructor;
+  return this.then(
+    function(value) {
+      return constructor.resolve(callback()).then(function() {
+        return value;
+      });
+    },
+    function(reason) {
+      return constructor.resolve(callback()).then(function() {
+        return constructor.reject(reason);
+      });
+    }
+  );
+}
+```
+
+`finallyConstructor`方法实现了Promise的`finally`方法，它确保无论Promise是成功还是失败，回调函数`callback`都会被执行。
+
+#### Promise$1 构造函数
+
+```javascript
+function Promise$1(fn) {
+  if (!(this instanceof Promise$1))
+    throw new TypeError('Promises must be constructed via new');
+  if (typeof fn !== 'function') throw new TypeError('not a function');
+  this._state = 0;
+  this._handled = false;
+  this._value = undefined;
+  this._deferreds = [];
+  
+  doResolve(fn, this);
+}
+```
+
+`Promise$1`是一个Promise的polyfill实现。构造函数接收一个执行函数`fn`，并初始化Promise的状态和内部属性，然后调用`doResolve`函数来处理这个执行函数。
+
+### 异步任务处理
+
+#### TaskQueue
+
+```javascript
+var TaskQueue = /*#__PURE__*/function () {
+  function TaskQueue(tasks) {
+    this.tasks = tasks || [];
+  }
+  _createClass(TaskQueue, [{
+    key: "execute",
+    value: function execute(task) {
+      return task.function.apply(task.context, task.args);
+    }
+  }, {
+    key: "push",
+    value: function push(task) {
+      this.tasks.push(task);
+    }
+  }, {
+    key: "flush",
+    value: function flush() {
+      var tasks = this.tasks.slice();
+      this.tasks = [];
+      for (var i = 0; i < tasks.length; i++) {
+        this.execute(tasks[i]);
+      }
+    }
+  }, {
+    key: "clear",
+    value: function clear() {
+      this.tasks = [];
+    }
+  }]);
+  return TaskQueue;
+}();
+```
+
+`TaskQueue`类实现了一个简单的任务队列，可以将任务添加到队列中并按顺序执行。这个类有以下方法：
+- `execute`: 执行单个任务。
+- `push`: 将任务添加到队列中。
+- `flush`: 执行所有队列中的任务并清空队列。
+- `clear`: 清空队列中的所有任务。
+
+### 数据上报和策略管理
+
+#### Reporter
+
+`Reporter`类负责管理和执行数据上报逻辑。
+
+##### 构造函数
+
+```javascript
+function Reporter(deps, env = {}) {
+  this.fetch = deps.fetch;
+  this.bridge = deps.bridge;
+  this.db = deps.db;
+  this.env = env;
+  this.taskQueue = new TaskQueue();
+  this.strategy = null;
+  this.TYPE_MAP = { api: 'http', function: 'lpc', stamp: 'ui' };
+
+  this.getStrategy().then(strategy => {
+    this.strategy = strategy;
+    this.taskQueue.flush();
+  }).catch(() => {
+    this.strategy = { enable: false };
+    this.taskQueue.clear();
+  });
+}
+```
+
+构造函数接收依赖对象`deps`和环境信息`env`，并初始化一些内部属性，如`fetch`、`bridge`、`db`、`env`和`taskQueue`。它会立即调用`getStrategy`方法获取上报策略。
+
+##### 获取策略
+
+```javascript
+Reporter.prototype.getStrategy = function() {
+  if (env.PARS && this.bridge) {
+    return this.getStrategyFromApp().catch(() => this.getStrategyFromNetwork());
+  } else {
+    return this.getStrategyFromNetwork();
+  }
+};
+
+Reporter.prototype.getStrategyFromApp = function() {
+  return this.bridge.invoke({
+    service: 'papm',
+    action: 'getH5Strategy'
+  }).then(data => JSON.parse(data.strategy));
+};
+
+Reporter.prototype.getStrategyFromNetwork = function() {
+  return this.fetch.call(undefined, `${api$1.getStrategy}?platform=${this.env.platform || 'h5'}`)
+    .then(resp => resp.json())
+    .then(data => {
+      if (data.CODE !== '00') {
+        throw new Error(data.MSG);
+      }
+      return JSON.parse(data.DATA);
+    });
+};
+```
+
+`getStrategy`方法根据不同的环境选择从App或网络获取策略。`getStrategyFromApp`方法通过`bridge`从App获取策略，而`getStrategyFromNetwork`方法通过`fetch`从网络获取策略。
+
+### 总结
+
+这部分代码主要实现了Promise的polyfill、任务队列以及数据上报策略的管理。`Reporter`类通过异步任务队列和策略管理，实现了灵活和高效的数据上报机制。请继续提供下一部分代码，我会继续帮助你分析。
+
+
+这部分代码继续实现前端性能监控SDK的功能，特别是围绕`PARSBridge`进行的。`PARSBridge`主要用于与底层的原生桥接通信，并处理异步调用及其超时错误。以下是对代码各部分的详细解释：
+
+### 基础工具函数
+
+#### _typeof
+
+```javascript
+function _typeof(obj) {
+  if (typeof Symbol === "function" && typeof Symbol.iterator === "symbol") {
+    _typeof = function (obj) {
+      return typeof obj;
+    };
+  } else {
+    _typeof = function (obj) {
+      return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj;
+    };
+  }
+  return _typeof(obj);
+}
+```
+
+`_typeof`是一个辅助函数，用于确定对象的类型，特别是当Symbol存在时，处理Symbol类型。
+
+#### _classCallCheck
+
+```javascript
+function _classCallCheck(instance, Constructor) {
+  if (!(instance instanceof Constructor)) {
+    throw new TypeError("Cannot call a class as a function");
+  }
+}
+```
+
+`_classCallCheck`确保类构造函数是通过`new`关键字调用的，而不是作为普通函数。
+
+#### _createClass
+
+```javascript
+function _defineProperties(target, props) {
+  for (var i = 0; i < props.length; i++) {
+    var descriptor = props[i];
+    descriptor.enumerable = descriptor.enumerable || false;
+    descriptor.configurable = true;
+    if ("value" in descriptor) descriptor.writable = true;
+    Object.defineProperty(target, descriptor.key, descriptor);
+  }
+}
+function _createClass(Constructor, protoProps, staticProps) {
+  if (protoProps) _defineProperties(Constructor.prototype, protoProps);
+  if (staticProps) _defineProperties(Constructor, staticProps);
+  return Constructor;
+}
+```
+
+`_createClass`用于定义类的方法。它接受构造函数、原型属性和静态属性，并将这些属性添加到类中。
+
+#### _inherits 和 _createSuper
+
+```javascript
+function _inherits(subClass, superClass) {
+  if (typeof superClass !== "function" && superClass !== null) {
+    throw new TypeError("Super expression must either be null or a function");
+  }
+  subClass.prototype = Object.create(superClass && superClass.prototype, {
+    constructor: {
+      value: subClass,
+      writable: true,
+      configurable: true
+    }
+  });
+  if (superClass) _setPrototypeOf(subClass, superClass);
+}
+function _createSuper(Derived) {
+  var hasNativeReflectConstruct = _isNativeReflectConstruct();
+  return function _createSuperInternal() {
+    var Super = _getPrototypeOf(Derived),
+      result;
+    if (hasNativeReflectConstruct) {
+      var NewTarget = _getPrototypeOf(this).constructor;
+      result = Reflect.construct(Super, arguments, NewTarget);
+    } else {
+      result = Super.apply(this, arguments);
+    }
+    return _possibleConstructorReturn(this, result);
+  };
+}
+```
+
+`_inherits`用于实现子类继承父类的功能，而`_createSuper`则是帮助实现带有父类构造函数调用的子类构造函数。
+
+### PARSBridge
+
+#### 错误类型
+
+```javascript
+var PARSBridgeInvokeError = /*#__PURE__*/function (_Error) {
+  _inherits(PARSBridgeInvokeError, _Error);
+  var _super = _createSuper(PARSBridgeInvokeError);
+  function PARSBridgeInvokeError(args, response, desc = 'internal error') {
+    var _this;
+    var message = `[PARSBridge#invoke: ${desc}][args: ${JSON.stringify(args)}][response: ${JSON.stringify(response)}]`;
+    _this = _super.call(this, message);
+    _this.name = 'PARSBridgeInvokeError';
+    return _this;
+  }
+  return PARSBridgeInvokeError;
+}( /*#__PURE__*/_wrapNativeSuper(Error));
+
+var PARSBridgeInvokeTimeoutError = /*#__PURE__*/function (_PARSBridgeInvokeErro) {
+  _inherits(PARSBridgeInvokeTimeoutError, _PARSBridgeInvokeErro);
+  var _super2 = _createSuper(PARSBridgeInvokeTimeoutError);
+  function PARSBridgeInvokeTimeoutError(args) {
+    var _this2;
+    _classCallCheck(this, PARSBridgeInvokeTimeoutError);
+    _this2 = _super2.call(this, args, null, 'timeout');
+    _this2.name = 'PARSBridgeInvokeTimeoutError';
+    return _this2;
+  }
+  return PARSBridgeInvokeTimeoutError;
+}(PARSBridgeInvokeError);
+```
+
+`PARSBridgeInvokeError`和`PARSBridgeInvokeTimeoutError`是自定义错误类，用于在桥接调用中处理错误和超时情况。这些错误类扩展了JavaScript的原生`Error`类，添加了额外的上下文信息。
+
+#### PARSBridge 类
+
+```javascript
+var PARSBridge = /*#__PURE__*/function () {
+  function PARSBridge() {
+    _classCallCheck(this, PARSBridge);
+  }
+  _createClass(PARSBridge, [{
+    key: "invoke",
+    value: function invoke(args) {
+      var service = args.service,
+        action = args.action,
+        param = args.param || {},
+        options = args.options;
+      options = object_assign({ timeout: 2000 }, options);
+
+      return Promise.race([
+        new Promise(function (resolve, reject) {
+          PALifeJSSDK.native({
+            service: service,
+            action: action,
+            param: param,
+            options: options,
+            success: function success(resp) {
+              if (resp.ret === '0') {
+                resolve(resp.data);
+              } else {
+                reject(new PARSBridgeInvokeError(args, resp));
+              }
+            },
+            error: function error(err) {
+              reject(new PARSBridgeInvokeError(args, err));
+            }
+          });
+        }),
+        new Promise(function (resolve, reject) {
+          setTimeout(function () {
+            reject(new PARSBridgeInvokeTimeoutError({ service, action, param, options }));
+          }, options.timeout);
+        })
+      ]);
+    }
+  }]);
+  return PARSBridge;
+}();
+```
+
+`PARSBridge`类封装了一个`invoke`方法，用于发起与原生桥接的通信请求。它使用`Promise.race`来并行处理实际调用和超时处理。
+
+- **实际调用**：通过`PALifeJSSDK.native`方法发起请求，成功时解析数据，失败时抛出`PARSBridgeInvokeError`。
+- **超时处理**：如果在指定时间内没有响应，则抛出`PARSBridgeInvokeTimeoutError`。
+
+### 其他工具函数
+
+#### unwrapExports
+
+```javascript
+function unwrapExports(x) {
+  return x && x.__esModule && Object.prototype.hasOwnProperty.call(x, 'default') ? x['default'] : x;
+}
+```
+
+`unwrapExports`用于解包CommonJS模块的导出内容，特别是当使用`__esModule`标记时，返回默认导出。
+
+#### object_assign
+
+```javascript
+var object_assign = function(target, source1) {
+  // ... implementation
+};
+```
+
+`object_assign`是一个对象合并函数，类似于`Object.assign`，用于将源对象的属性复制到目标对象中。
+
+### 总结
+
+这部分代码实现了一个与原生桥接通信的类`PARSBridge`，处理异步调用和超时，同时还定义了一些辅助工具函数和自定义错误类型，以支持该类的功能。请继续提供下一部分代码，我会继续帮助你分析。
+
+
+
+
+
+这部分代码实现了一个用户代理解析器和一个灵活的存储管理器。下面是对各部分的详细解释：
+
+### 用户代理解析器 (UAParser)
+
+#### UAParser.js
+
+UAParser.js是一个库，用于从用户代理字符串中检测浏览器、引擎、操作系统、CPU和设备类型/型号。它支持浏览器和Node.js环境。
+
+```javascript
+var uaParser = createCommonjsModule(function (module, exports) {
+    // UAParser.js 代码
+    // ...
+    (function (window, undefined$1) {
+        // 变量定义
+        var LIBVERSION  = '0.7.32',
+            EMPTY       = '',
+            UNKNOWN     = '?',
+            FUNC_TYPE   = 'function',
+            UNDEF_TYPE  = 'undefined',
+            OBJ_TYPE    = 'object',
+            STR_TYPE    = 'string',
+            MAJOR       = 'major',
+            MODEL       = 'model',
+            NAME        = 'name',
+            TYPE        = 'type',
+            VENDOR      = 'vendor',
+            VERSION     = 'version',
+            ARCHITECTURE= 'architecture',
+            CONSOLE     = 'console',
+            MOBILE      = 'mobile',
+            TABLET      = 'tablet',
+            SMARTTV     = 'smarttv',
+            WEARABLE    = 'wearable',
+            EMBEDDED    = 'embedded',
+            UA_MAX_LENGTH = 350;
+
+        var AMAZON  = 'Amazon',
+            APPLE   = 'Apple',
+            ASUS    = 'ASUS',
+            BLACKBERRY = 'BlackBerry',
+            BROWSER = 'Browser',
+            CHROME  = 'Chrome',
+            EDGE    = 'Edge',
+            FIREFOX = 'Firefox',
+            GOOGLE  = 'Google',
+            HUAWEI  = 'Huawei',
+            LG      = 'LG',
+            MICROSOFT = 'Microsoft',
+            MOTOROLA  = 'Motorola',
+            OPERA   = 'Opera',
+            SAMSUNG = 'Samsung',
+            SHARP   = 'Sharp',
+            SONY    = 'Sony',
+            XIAOMI  = 'Xiaomi',
+            ZEBRA   = 'Zebra',
+            FACEBOOK   = 'Facebook';
+
+        // Helper 函数
+        var extend = function (regexes, extensions) {
+            var mergedRegexes = {};
+            for (var i in regexes) {
+                if (extensions[i] && extensions[i].length % 2 === 0) {
+                    mergedRegexes[i] = extensions[i].concat(regexes[i]);
+                } else {
+                    mergedRegexes[i] = regexes[i];
+                }
+            }
+            return mergedRegexes;
+        };
+
+        var has = function (str1, str2) {
+            return typeof str1 === STR_TYPE ? lowerize(str2).indexOf(lowerize(str1)) !== -1 : false;
+        };
+
+        var lowerize = function (str) {
+            return str.toLowerCase();
+        };
+
+        var majorize = function (version) {
+            return typeof(version) === STR_TYPE ? version.replace(/[^\d\.]/g, EMPTY).split('.')[0] : undefined$1;
+        };
+
+        var trim = function (str, len) {
+            if (typeof(str) === STR_TYPE) {
+                str = str.replace(/^\s\s*/, EMPTY).replace(/\s\s*$/, EMPTY);
+                return typeof(len) === UNDEF_TYPE ? str : str.substring(0, UA_MAX_LENGTH);
+            }
+        };
+
+        // Regex map
+        var regexes = {
+            browser : [
+                [/\b(?:crmo|crios)\/([\w\.]+)/i], [VERSION, [NAME, 'Chrome']],
+                [/edg(?:e|ios|a)?\/([\w\.]+)/i], [VERSION, [NAME, 'Edge']],
+                // ... 其他正则表达式
+            ],
+            cpu : [
+                [/(?:(amd|x(?:(?:86|64)[-_])?|wow|win)64)[;\)]/i], [[ARCHITECTURE, 'amd64']],
+                // ... 其他正则表达式
+            ],
+            device : [
+                // Samsung
+                [/\b(sch-i[89]0\d|shw-m380s|sm-[ptx]\w{2,4}|gt-[pn]\d{2,4}|sgh-t8[56]9|nexus 10)/i], [MODEL, [VENDOR, SAMSUNG], [TYPE, TABLET]],
+                // ... 其他正则表达式
+            ],
+            engine : [
+                [/windows.+ edge\/([\w\.]+)/i], [VERSION, [NAME, EDGE+'HTML']],
+                // ... 其他正则表达式
+            ],
+            os : [
+                // Windows
+                [/microsoft (windows) (vista|xp)/i], [NAME, VERSION],
+                // ... 其他正则表达式
+            ]
+        };
+
+        // Constructor
+        var UAParser = function (ua, extensions) {
+            if (typeof ua === OBJ_TYPE) {
+                extensions = ua;
+                ua = undefined$1;
+            }
+
+            if (!(this instanceof UAParser)) {
+                return new UAParser(ua, extensions).getResult();
+            }
+
+            var _ua = ua || ((typeof window !== UNDEF_TYPE && window.navigator && window.navigator.userAgent) ? window.navigator.userAgent : EMPTY);
+            var _rgxmap = extensions ? extend(regexes, extensions) : regexes;
+
+            this.getBrowser = function () {
+                var _browser = {};
+                _browser[NAME] = undefined$1;
+                _browser[VERSION] = undefined$1;
+                rgxMapper.call(_browser, _ua, _rgxmap.browser);
+                _browser.major = majorize(_browser.version);
+                return _browser;
+            };
+
+            this.getCPU = function () {
+                var _cpu = {};
+                _cpu[ARCHITECTURE] = undefined$1;
+                rgxMapper.call(_cpu, _ua, _rgxmap.cpu);
+                return _cpu;
+            };
+
+            this.getDevice = function () {
+                var _device = {};
+                _device[VENDOR] = undefined$1;
+                _device[MODEL] = undefined$1;
+                _device[TYPE] = undefined$1;
+                rgxMapper.call(_device, _ua, _rgxmap.device);
+                return _device;
+            };
+
+            this.getEngine = function () {
+                var _engine = {};
+                _engine[NAME] = undefined$1;
+                _engine[VERSION] = undefined$1;
+                rgxMapper.call(_engine, _ua, _rgxmap.engine);
+                return _engine;
+            };
+
+            this.getOS = function () {
+                var _os = {};
+                _os[NAME] = undefined$1;
+                _os[VERSION] = undefined$1;
+                rgxMapper.call(_os, _ua, _rgxmap.os);
+                return _os;
+            };
+
+            this.getResult = function () {
+                return {
+                    ua      : this.getUA(),
+                    browser : this.getBrowser(),
+                    engine  : this.getEngine(),
+                    os      : this.getOS(),
+                    device  : this.getDevice(),
+                    cpu     : this.getCPU()
+                };
+            };
+
+            this.getUA = function () {
+                return _ua;
+            };
+
+            this.setUA = function (ua) {
+                _ua = (typeof ua === STR_TYPE && ua.length > UA_MAX_LENGTH) ? trim(ua, UA_MAX_LENGTH) : ua;
+                return this;
+            };
+
+            this.setUA(_ua);
+            return this;
+        };
+
+        UAParser.VERSION = LIBVERSION;
+        UAParser.BROWSER =  enumerize([NAME, VERSION, MAJOR]);
+        UAParser.CPU = enumerize([ARCHITECTURE]);
+        UAParser.DEVICE = enumerize([MODEL, VENDOR, TYPE, CONSOLE, MOBILE, SMARTTV, TABLET, WEARABLE, EMBEDDED]);
+        UAParser.ENGINE = UAParser.OS = enumerize([NAME, VERSION]);
+
+        // Export
+        {
+            if ( module.exports) {
+                exports = module.exports = UAParser;
+            }
+            exports.UAParser = UAParser;
+        }
+
+        var $ = typeof window !== UNDEF_TYPE && (window.jQuery || window.Zepto);
+        if ($ && !$.ua) {
+            var parser = new UAParser();
+            $.ua = parser.getResult();
+            $.ua.get = function () {
+                return parser.getUA();
+            };
+            $.ua.set = function (ua) {
+                parser.setUA(ua);
+                var result = parser.getResult();
+                for (var prop in result) {
+                    $.ua[prop] = result[prop];
+                }
+            };
+        }
+    })(typeof window === 'object' ? window : commonjsGlobal);
+});
+```
+
+### 灵活存储管理器 (FlexibleStorage)
+
+```javascript
+var PATH_REGEX = /\[\s*(['"])(.*?)\1\s*\]|^\s*(\w+)\s*(?=\.|\[|$)|\.\s*(\w*)\s*(?=\.|\[|$)|\[\s*(-?\d+)\s*\]/g;
+var FlexibleStorage = /*#__PURE__*/function () {
+  function FlexibleStorage(nativeStorage, storeKey) {
+
+
+
+
+
+这段代码实现了一个前端追踪工具，称为`Tracker`，用于监控和报告前端性能、错误和API调用情况。代码还包含一个灵活的序列化工具和本地数据库存储类。下面是对各部分的详细解释：
+
+### stringify_1
+
+```javascript
+var stringify_1 = createCommonjsModule(function (module, exports) {
+  exports = module.exports = stringify;
+  exports.getSerialize = serializer;
+
+  function stringify(obj, replacer, spaces, cycleReplacer) {
+    return JSON.stringify(obj, serializer(replacer, cycleReplacer), spaces);
+  }
+
+  function serializer(replacer, cycleReplacer) {
+    var stack = [], keys = [];
+
+    if (cycleReplacer == null) cycleReplacer = function(key, value) {
+      if (stack[0] === value) return "[Circular ~]";
+      return "[Circular ~." + keys.slice(0, stack.indexOf(value)).join(".") + "]";
+    };
+
+    return function(key, value) {
+      if (stack.length > 0) {
+        var thisPos = stack.indexOf(this);
+        ~thisPos ? stack.splice(thisPos + 1) : stack.push(this);
+        ~thisPos ? keys.splice(thisPos, Infinity, key) : keys.push(key);
+        if (~stack.indexOf(value)) value = cycleReplacer.call(this, key, value);
+      }
+      else stack.push(value);
+
+      return replacer == null ? value : replacer.call(this, key, value);
+    }
+  }
+});
+```
+
+`stringify_1`是一个用于JSON序列化的模块，可以处理循环引用的问题。它定义了一个`stringify`函数，用于将对象转换为JSON字符串，同时可以指定替换器和循环替换器。
+
+### Browser Info & Error Reporting
+
+```javascript
+var uaResult = new uaParser.UAParser(undefined, {
+  browser: [[/(PARS)\/(\w+)/], [[uaParser.UAParser.BROWSER.NAME, '金管家'], uaParser.UAParser.BROWSER.VERSION]]
+}).getResult();
+
+var getBrowserInfo = function getBrowserInfo() {
+  var _parseURL = parseURL(window.location.href),
+    _a = _parseURL._a;
+  _a.search = '';
+  _a.hash = _a.hash.replace(/\?.*$/, '');
+  return {
+    url: _a.href.replace('?#', '#'),
+    fullUrl: window.location.href,
+    ua: window.navigator.userAgent,
+    domain: window.location.host,
+    ...uaResult
+  };
+};
+
+function extractErrorType(msg) {
+  var i = msg.indexOf(':');
+  if (i !== -1) {
+    return msg.slice(0, i);
+  } else {
+    return 'Unknown';
+  }
+}
+
+function reportError(err) {
+  var errEvent = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
+  var message = err.toString();
+  var errStack = '';
+  if (err && err.stack) {
+    errStack = err.stack.replace(/\n/gi, '').split(/\bat\b/).slice(0, 9).join('@').replace(/\s{2,}/gi, ' ').replace(/\?[^:]+/gi, '');
+  } else {
+    errStack = message;
+  }
+  var data = {
+    info: {
+      ...getBrowserInfo(),
+      stack: errStack,
+      reason: message,
+      type: extractErrorType(message),
+      filename: errEvent.filename,
+      lineno: errEvent.lineno,
+      colno: errEvent.colno,
+      appVersion: this.options.appVersion,
+      appName: this.options.appName
+    }
+  };
+  if (err.extend) {
+    data.extend = err.extend;
+  }
+  this.reporter.report('excp', data);
+}
+```
+
+### Tracker 类
+
+`Tracker`类用于监控页面性能、XHR和Fetch请求、JavaScript错误，并进行上报。
+
+```javascript
+var Tracker = /*#__PURE__*/function () {
+  function Tracker(reporter) {
+    _classCallCheck(this, Tracker);
+    this.reporter = reporter;
+    this.options = {};
+    this.trackError();
+    this.trackXHR();
+    this.trackFetch();
+    this.trackPerformance();
+    this.markFP();
+  }
+
+  _createClass(Tracker, [{
+    key: "init",
+    value: function init() {}
+  }, {
+    key: "trackPerformance",
+
+
+
+
+
+
+
+这段代码的主要功能是初始化一个`Tracker`实例，如果该实例还未存在的话，并且返回该实例。`Tracker`用于前端监控和数据上报。以下是这段代码的详细解读：
+
+### 代码解释
+
+```javascript
+var tracker;
+var nativeFetch = window.fetch; // 获取原生 fetch 方法
+if (!window.Tracker) { // 检查全局对象 window 上是否已经存在 Tracker 实例
+  var bridge = new PARSBridge(); // 创建一个新的 PARSBridge 实例
+  var reporter = new Reporter({ // 创建一个新的 Reporter 实例
+    fetch: nativeFetch, // 使用原生 fetch 方法
+    bridge: bridge, // 使用刚刚创建的 PARSBridge 实例
+    db: new LocalDB() // 使用一个新的 LocalDB 实例
+  }, {
+    deviceId: getDeviceId(), // 获取设备 ID
+    appId: window.PARS_TRACKER_ENV === 'test' ? '20003' : '30003' // 根据环境变量设置 appId
+  });
+  tracker = window.Tracker = new Tracker(reporter); // 创建 Tracker 实例，并将其赋值给全局 window.Tracker
+} else {
+  tracker = window.Tracker; // 如果已经存在 Tracker 实例，则直接使用它
+}
+var tracker$1 = tracker; // 将 tracker 赋值给 tracker$1
+
+return tracker$1; // 返回 tracker$1
+```
+
+### 详细步骤
+
+1. **检查现有实例**：
+    ```javascript
+    if (!window.Tracker) { ... }
+    ```
+    这一步是检查是否已经存在一个`Tracker`实例。如果已经存在，直接使用现有的实例；如果不存在，则创建一个新的实例。
+
+2. **创建`PARSBridge`实例**：
+    ```javascript
+    var bridge = new PARSBridge();
+    ```
+    `PARSBridge`是一个桥接类，可能用于跨平台通信或数据传输。
+
+3. **创建`Reporter`实例**：
+    ```javascript
+    var reporter = new Reporter({
+      fetch: nativeFetch,
+      bridge: bridge,
+      db: new LocalDB()
+    }, {
+      deviceId: getDeviceId(),
+      appId: window.PARS_TRACKER_ENV === 'test' ? '20003' : '30003'
+    });
+    ```
+    `Reporter`用于处理数据的收集和上报。构造函数的第一个参数包含`fetch`方法、`bridge`实例和本地数据库`LocalDB`实例，第二个参数包含设备ID和应用ID。
+
+4. **创建`Tracker`实例**：
+    ```javascript
+    tracker = window.Tracker = new Tracker(reporter);
+    ```
+    使用`Reporter`实例创建`Tracker`实例，并将其赋值给全局对象`window.Tracker`，以便其他地方可以直接访问。
+
+5. **直接使用现有`Tracker`实例**：
+    ```javascript
+    else {
+      tracker = window.Tracker;
+    }
+    ```
+    如果已经存在`Tracker`实例，直接使用它。
+
+6. **返回`Tracker`实例**：
+    ```javascript
+    var tracker$1 = tracker;
+
+    return tracker$1;
+    ```
+    将`Tracker`实例赋值给局部变量`tracker$1`并返回。
+
+### 总结
+
+这段代码确保在应用中只有一个`Tracker`实例存在，避免重复创建。`Tracker`用于监控前端性能、错误和API调用，并上报这些数据。初始化过程中，使用`PARSBridge`和`LocalDB`来处理数据的传输和存储，使用`Reporter`来收集和上报数据。
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+=====================================================================================
+总结
+这个前端性能监控实现主要通过初始化一个`Tracker`实例来完成，该实例用于收集和上报浏览器的性能数据、错误信息、API调用的相关信息。以下是实现原理的详细总结：
+
+### 1. 初始化与检查现有实例
+代码首先检查全局对象`window`上是否已经存在一个`Tracker`实例。如果不存在，则创建一个新的实例并赋值给`window.Tracker`，否则直接使用现有的实例。
+
+### 2. 依赖实例的创建
+- **PARSBridge**：用于跨平台通信或数据传输。
+- **Reporter**：用于处理数据的收集和上报。构造`Reporter`实例时需要传入`fetch`方法、`PARSBridge`实例和本地数据库实例`LocalDB`，以及包含设备ID和应用ID的配置信息。
+- **LocalDB**：用于本地数据的存储，主要存储需要上报的性能和错误信息。
+
+### 3. `Tracker`实例的功能
+`Tracker`实例提供了以下监控功能：
+1. **初始化**：
+    ```javascript
+    init() { ... }
+    ```
+    兼容旧版`Tracker`的初始化方法。
+   
+2. **监控页面渲染耗时性能**：
+    ```javascript
+    trackPerformance() { ... }
+    ```
+    使用`window.performance.timing` API收集页面加载各阶段的时间，并上报这些时间数据。
+
+3. **监控XHR请求**：
+    ```javascript
+    trackXHR() { ... }
+    ```
+    通过重写`XMLHttpRequest.prototype.send`方法，监控所有的XHR请求，包括请求的响应时间、状态码、内容类型等信息，并在请求完成后进行上报。
+
+4. **监控Fetch请求**：
+    ```javascript
+    trackFetch() { ... }
+    ```
+    重写`window.fetch`方法，类似XHR监控，记录请求的响应时间、状态码、内容类型等信息，并在请求完成后进行上报。
+
+5. **监控JavaScript错误**：
+    ```javascript
+    trackError() { ... }
+    ```
+    监听全局的未处理Promise拒绝和错误事件，将错误信息进行格式化后上报。
+
+6. **主动上报错误**：
+    ```javascript
+    error(err) { ... }
+    ```
+    提供一个方法主动上报错误信息。
+
+7. **性能标记与测量**：
+    ```javascript
+    markStart(metric) { ... }
+    markEnd(metric) { ... }
+    markFP() { ... }
+    markFMP() { ... }
+    markTTI() { ... }
+    ```
+    使用`window.performance.mark` API进行性能标记与测量，例如首次绘制（FP）、首次内容绘制（FCP）、首次有意义绘制（FMP）、可交互时间（TTI）等。
+
+8. **功能调用链监控**：
+    ```javascript
+    funcH5(options) { ... }
+    funcTrain(options) { ... }
+    ```
+    用于监控特定功能的调用和性能，包括功能调用链监控。
+
+9. **配置**：
+    ```javascript
+    config(options) { ... }
+    ```
+    提供配置方法，用于更新`Tracker`实例的配置。
+
+### 4. 数据上报
+所有收集到的数据最终通过`Reporter`实例进行上报。`Reporter`实例内部通过`fetch`、`PARSBridge`等方式将数据发送到指定的服务器或服务端接口。
+
+### 总结
+通过上述步骤，`Tracker`实例实现了前端性能监控的完整功能。它通过劫持XHR和Fetch请求、监听全局错误事件、使用`performance` API等方式，收集并上报浏览器的性能数据和错误信息，从而帮助开发者了解应用的运行情况并进行性能优化。
+
+
+优化
+在上述前端性能监控实现中，有几个方面可以进一步优化和注意，以提升代码的健壮性、可维护性和性能：
+
+### 1. **代码结构优化**
+- **模块化**：将不同的监控功能模块化，分成多个文件。例如，将XHR监控、Fetch监控、错误监控等分别放在独立的模块中，然后在主文件中导入这些模块。
+- **单一职责**：确保每个类和方法的职责单一，遵循单一职责原则，便于维护和扩展。
+
+### 2. **错误处理**
+- **更健壮的错误处理**：在所有可能出错的地方增加错误处理逻辑，确保即使某一部分代码出错，不会影响整体功能。例如，`JSON.parse`需要捕获异常，防止解析错误导致监控功能失效。
+- **统一错误处理**：建立一个统一的错误处理机制，确保所有错误信息能够一致地进行处理和上报。
+
+### 3. **性能优化**
+- **异步处理**：将数据的收集和上报放到`requestIdleCallback`或`setTimeout`中，避免阻塞主线程，影响用户体验。
+- **批量上报**：对于频繁触发的监控事件（如XHR和Fetch请求），可以考虑将数据批量上报，减少网络请求次数，提高性能。
+
+### 4. **数据存储优化**
+- **本地存储容量管理**：对本地存储的数据进行容量管理，防止存储数据过多导致性能下降。可以实现一个简单的淘汰策略，定期清理过期或冗余的数据。
+- **数据加密**：如果存储的数据中包含敏感信息，可以考虑对数据进行加密存储，确保数据安全。
+
+### 5. **用户隐私和安全**
+- **隐私保护**：遵守相关的隐私保护法律法规，确保收集的数据不包含用户的个人敏感信息。
+- **数据安全**：通过HTTPS传输数据，防止数据在传输过程中被窃取或篡改。
+
+### 6. **扩展性**
+- **自定义配置**：提供更多自定义配置选项，让开发者可以根据需要启用或禁用某些监控功能，或者调整监控的细粒度。
+- **插件机制**：设计一个插件机制，允许开发者根据需要扩展和定制监控功能，便于添加新的监控项或更改现有的监控逻辑。
+
+### 7. **监控粒度调整**
+- **动态调整监控粒度**：允许根据应用的实际情况动态调整监控粒度。例如，在开发和测试环境中，可以启用更详细的监控，而在生产环境中，可以启用较为简化的监控。
+
+### 示例代码优化
+以下是对部分代码的优化示例：
+
+```javascript
+// Modularize the code
+import trackXHR from './trackXHR';
+import trackFetch from './trackFetch';
+import trackPerformance from './trackPerformance';
+import trackError from './trackError';
+
+class Tracker {
+  constructor(reporter) {
+    this.reporter = reporter;
+    this.options = {};
+    this.init();
+  }
+
+  init() {
+    this.trackError();
+    this.trackXHR();
+    this.trackFetch();
+    this.trackPerformance();
+    this.markFP();
+  }
+
+  trackPerformance() {
+    trackPerformance(this.reporter, this.options);
+  }
+
+  trackXHR() {
+    trackXHR(this.reporter);
+  }
+
+  trackFetch() {
+    trackFetch(this.reporter);
+  }
+
+  trackError() {
+    trackError(this.reporter, this.options);
+  }
+
+  // other methods...
+}
+
+// Example for one of the tracking modules
+export default function trackXHR(reporter) {
+  const originalSend = window.XMLHttpRequest.prototype.send;
+
+  window.XMLHttpRequest.prototype.send = function () {
+    const startTime = new Date().getTime();
+
+    this.addEventListener('load', function () {
+      const responseTime = new Date().getTime() - startTime;
+      if (this.responseURL && this.responseText) {
+        try {
+          const response = JSON.parse(this.responseText);
+          reporter.report('api', {
+            url: this.responseURL,
+            responseTime,
+            status: this.status,
+            response,
+          });
+        } catch (e) {
+          // Handle JSON parse error
+        }
+      }
+    });
+
+    originalSend.apply(this, arguments);
+  };
+}
+```
+
+### 总结
+通过以上优化建议，可以提高代码的可维护性、性能和安全性，并确保监控功能更加健壮和易于扩展。同时，遵循最佳实践，确保代码符合现代开发标准。

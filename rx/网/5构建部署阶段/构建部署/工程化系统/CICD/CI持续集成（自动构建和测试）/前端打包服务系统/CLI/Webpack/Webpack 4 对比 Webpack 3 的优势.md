@@ -1,0 +1,12 @@
+# Webpack 4 对比 Webpack 3 的优势
+- 性能优化：
+   - 新增 mode 模式：可以指定为 development 或 production，从而自动应用相应的优化。之前的版本需要手动配置。
+   - 更快的构建速度：优化内部逻辑和升级依赖库，显著提高了构建速度。
+      - UglifyJS 到 Terser：UglifyJS 是一个流行的 JavaScript 代码压缩工具，但在处理 ES6+ 代码时存在一些问题。Webpack 4 切换到了 Terser，这是 UglifyJS 的一个分支，专门优化了对现代 JavaScript 语法的支持。支持多线程压缩，可以利用多核 CPU 提高压缩速度。
+      - Babel 7 提供了更快的编译速度和更多的插件，同时更好地支持现代 JavaScript 特性。
+      - Scope Hoisting：通过将所有模块提升到一个更大的闭包中，Webpack 4 减少了闭包的数量，从而减少了包的体积。
+   - 更好的代码分割：动态导入与 Webpack 4 的 splitChunks 插件配合使用，可以实现更加细粒度的代码分割。
+- 开发体验：
+   - 更好的默认配置：不需要繁琐的配置文件。
+   - 支持最新的 JavaScript 语法和特性：Webpack 4 原生支持 ES Modules，不再需要额外的配置。
+   - 更好的 Tree Shaking：默认启用了更强大的 Tree Shaking 机制，Webpack 4 能更好地利用 ES Modules 的静态结构进行 Tree Shaking。
