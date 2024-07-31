@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Event Order Test</title>
+    <style>
+      input,
+      button {
+        display: block;
+        margin: 20px;
+        padding: 10px;
+        font-size: 16px;
+      }
+    </style>
+  </head>
+  <body>
+    <input type="text" id="inputA" placeholder="Type something here" />
+    <button id="buttonB">Click me</button>
+
+    <script>
+      const inputA = document.getElementById("inputA");
+      const buttonB = document.getElementById("buttonB");
+
+      inputA.addEventListener("change", () => {
+        console.log("Input A change event");
+      });
+
+      buttonB.addEventListener("touchstart", () => {
+        console.log("Button B touchstart event");
+      });
+
+      buttonB.addEventListener("touchend", () => {
+        console.log("Button B touchend event");
+      });
+    </script>
+  </body>
+</html>
