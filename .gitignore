@@ -54,3 +54,6 @@ MANIFEST
 .mr.developer.cfg
 .project
 .pydevproject
+
+dist
+node_modules
