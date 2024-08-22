@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <body>
+    <img src="/path/to/image.jpg" loading="lazy" alt="Lazy loaded image" />
+    <iframe src="/path/to/content.html" loading="lazy"></iframe>
+    <script>
+      if ("loading" in HTMLImageElement.prototype) {
+        const images = document.querySelectorAll("img.lazy");
+        images.forEach((img) => {
+          img.src = img.dataset.src;
+        });
+      }
+
+      if ("IntersectionObserver" in window) {
+        const lazyImages = document.querySelectorAll("img.lazy");
+
+        const imageObserver = new IntersectionObserver((entries, observer) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              const img = entry.target;
+              img.src = img.dataset.src;
+              img.classList.remove("lazy");
+              observer.unobserve(img);
+            }
+          });
+        });
+
+        lazyImages.forEach((img) => {
+          imageObserver.observe(img);
+        });
+      }
+
+      const lazyImages = document.querySelectorAll("img.lazy");
+
+      const lazyLoad = () => {
+        lazyImages.forEach((img) => {
+          if (
+            img.getBoundingClientRect().top <= window.innerHeight &&
+            img.getBoundingClientRect().bottom >= 0 &&
+            getComputedStyle(img).display !== "none"
+          ) {
+            img.src = img.dataset.src;
+            img.classList.remove("lazy");
+          }
+        });
+      };
+
+      window.addEventListener("scroll", lazyLoad);
+      window.addEventListener("resize", lazyLoad);
+      window.addEventListener("orientationchange", lazyLoad);
+    </script>
+  </body>
+</html>
