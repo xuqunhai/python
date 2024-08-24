@@ -98,20 +98,22 @@
       /***/ function (module, exports, __webpack_require__) {
         "use strict";
 
+        // 告诉系统“这个模块是使用 ES6 模块语法写的”
         Object.defineProperty(exports, "__esModule", {
           value: true,
         });
 
+        // console.log(typeof Symbol.prototype); // "object"
         var _typeof =
           typeof Symbol === "function" && typeof Symbol.iterator === "symbol"
             ? function (obj) {
                 return typeof obj;
               }
-            : function (obj) {
+            : function (obj) { // 早期版本的 JavaScript 引擎（特别是还不支持 ES6 的引擎）
                 return obj &&
                   typeof Symbol === "function" &&
                   obj.constructor === Symbol &&
-                  obj !== Symbol.prototype
+                  obj !== Symbol.prototype // 排除 Symbol.prototype 对象本身被误识别为 symbol 类型
                   ? "symbol"
                   : typeof obj;
               };
@@ -125,8 +127,8 @@
          */
 
         var events = (exports.events = [
-          "load",
-          "loadend",
+          "load", // 当网络请求成功完成时触发。
+          "loadend", // 不管请求的结果如何（成功、超时、取消、失败），只要请求结束时都会触发。
           "timeout",
           "error",
           "readystatechange",
@@ -160,8 +162,18 @@
             // Generate all callbacks(eg. onload) are enumerable (not undefined).
             for (var i = 0; i < events.length; ++i) {
               var key = "on" + events[i];
-              if (xhr[key] === undefined) xhr[key] = null;
+              if (xhr[key] === undefined) xhr[key] = null; // 确保这些事件回调属性存在，避免在代码中访问这些事件属性时出现未定义的错误。
             }
+            /*
+            将属性从不可枚举变成可枚举的常见方法包括：
+              直接赋值（默认可枚举）。
+              使用 Object.defineProperty 修改属性的 enumerable 特性。
+              使用 Object.defineProperties 同时定义多个可枚举属性。
+              使用 Object.assign 复制属性（注意它只复制可枚举属性）。
+              使用 Object.create 创建对象并定义可枚举属性。
+              修改原型链上的属性使其可枚举。
+              遍历属性并手动重定义其枚举性。
+            */
 
             for (var attr in xhr) {
               var type = "";
@@ -170,8 +182,10 @@
               } catch (e) {}
               if (type === "function") {
                 // hookAjax methods of xhr, such as `open`、`send` ...
+                // 劫持：在这些方法执行时插入自定义的逻辑
                 this[attr] = hookFunction(attr);
-              } else if (attr !== OriginXhr) {
+              } else if (attr !== OriginXhr) { // 防止对原始 XMLHttpRequest 实例进行不必要的包装或劫持。
+                // 对非函数类型的属性进行包装拦截
                 Object.defineProperty(this, attr, {
                   get: getterFactory(attr),
                   set: setterFactory(attr),
@@ -202,14 +216,18 @@
           // Generate getter for attributes of xhr
           function getterFactory(attr) {
             return function () {
-              var originValue = this[OriginXhr][attr];
-              if (hooking) {
+              var originValue = this[OriginXhr][attr]; // 获取原始属性值
+              if (hooking) { // 正在进行劫持
+                // 是否存在一个以 attr + "_" 命名的自定义属性
                 var v = this.hasOwnProperty(attr + "_")
                   ? this[attr + "_"]
-                  : originValue;
-                var attrGetterHook = (proxy[attr] || {})["getter"];
+                  : originValue; // 没有找到这个自定义属性，使用原始的 XMLHttpRequest 属性值 originValue。
+                // 检查 proxy 对象上是否为该属性（attr）定义了一个自定义的 getter 钩子
+                var attrGetterHook = (proxy[attr] || {})["getter"]; // 从 proxy 中获取对应属性的 getter 钩子。
+                // 调用这个钩子函数，并传入两个参数：v（当前属性值）和 this（当前的 XMLHttpRequest 实例）。
                 return (attrGetterHook && attrGetterHook(v, this)) || v;
               } else {
+                // 当前不进行劫持，属性的行为完全按照浏览器原生的 XMLHttpRequest 处理。
                 return originValue;
               }
             };
@@ -217,27 +235,32 @@
 
           // Generate setter for attributes of xhr; by this we have an opportunity
           // to hookAjax event callbacks （eg: `onload`） of xhr;
+          // 属性生成一个拦截器，在设置这些属性值时插入自定义逻辑
           function setterFactory(attr) {
             return function (v) {
-              var xhr = this[OriginXhr];
+              var xhr = this[OriginXhr]; // 获取原始 XMLHttpRequest 实例
               if (hooking) {
                 var that = this;
-                var hook = proxy[attr];
+                var hook = proxy[attr]; // 处理事件回调属性
                 // hookAjax  event callbacks such as `onload`、`onreadystatechange`...
+                // 判断属性是否是事件回调函数（如 onload、onreadystatechange 等）
                 if (attr.substring(0, 2) === "on") {
-                  that[attr + "_"] = v;
-                  xhr[attr] = function (e) {
-                    e = configEvent(e, that);
+                  that[attr + "_"] = v; // 自定义属性 attr + "_" 中（例如，onload_）。
+                  xhr[attr] = function (e) { // 替换为自定义的函数
+                    e = configEvent(e, that); // 将事件对象重新配置，以便在回调中正确地指向被劫持的 XMLHttpRequest 实例。
+                    // 如果在 proxy 中定义了该事件的自定义处理函数，则调用该自定义函数
                     var ret = proxy[attr] && proxy[attr].call(that, xhr, e);
-                    ret || v.call(that, e);
+                    ret || v.call(that, e); // 如果自定义处理函数返回了结果，则使用该结果，否则，调用原始的回调函数 
                   };
-                } else {
+                } else { // 处理非事件属性
                   //If the attribute isn't writable, generate proxy attribute
-                  var attrSetterHook = (hook || {})["setter"];
+                  var attrSetterHook = (hook || {})["setter"]; // 从 proxy 中获取属性的 setter 钩子函数，
+                  // 如果钩子函数返回了一个新的值，使用这个新值；否则使用原始的值 v。
                   v = (attrSetterHook && attrSetterHook(v, that)) || v;
-                  this[attr + "_"] = v;
+                  this[attr + "_"] = v; // 将新的值存储到自定义的属性 attr + "_" 中
                   try {
                     // Not all attributes of xhr are writable(setter may undefined).
+                    // 尝试将属性值赋给原始的 XMLHttpRequest 实例。
                     xhr[attr] = v;
                   } catch (e) {}
                 }
@@ -248,15 +271,19 @@
           }
 
           // Hook methods of xhr.
-          function hookFunction(fun) {
+          function hookFunction(fun) { // 特定方法进行劫持
             return function () {
-              var args = [].slice.call(arguments);
+              var args = [].slice.call(arguments); // 将类数组的 arguments 对象转换为真正的数组
+              // 检查是否需要劫持
+              // 检查 proxy 对象上是否存在与当前方法名 fun 相同的代理函数
+              // hooking：当前是否处于劫持状态。全局开关，动态启停劫持功能，保持灵活性
               if (proxy[fun] && hooking) {
-                var ret = proxy[fun].call(this, args, this[OriginXhr]);
+                var ret = proxy[fun].call(this, args, this[OriginXhr]); // 调用代理函数，call确保代理函数可以正确地绑定到当前 XMLHttpRequest 实例上。
                 // If the proxy return value exists, return it directly,
                 // otherwise call the function of xhr.
-                if (ret) return ret;
+                if (ret) return ret; // 返回值存在，则直接返回该值。
               }
+              // 调用原始方法
               return this[OriginXhr][fun].apply(this[OriginXhr], args);
             };
           }
@@ -266,7 +293,7 @@
             if (win.XMLHttpRequest === HookXMLHttpRequest) {
               win.XMLHttpRequest = originXhr;
               HookXMLHttpRequest.prototype.constructor = originXhr;
-              originXhr = undefined;
+              originXhr = undefined; // 解除劫持时清理掉引用，避免意外的内存泄漏和不必要的引用残留。
             }
           }
 
@@ -355,16 +382,20 @@
           },
         });
 
+        // 生成了处理程序，每个处理程序都负责请求流程的一个部分
         function makeHandler(next) {
+          // sub 实例就可以继承和使用 Handler 的功能。
           function sub(xhr) {
             Handler.call(this, xhr);
           }
 
           sub[prototype] = Object.create(Handler[prototype]);
+          // 每个子处理程序都有一个 next 函数，用于在链式处理流程中调用下一个处理阶段。
           sub[prototype].next = next;
           return sub;
         }
 
+        // 具体的处理程序，负责最终执行 HTTP 请求。
         var RequestHandler = makeHandler(function (rq) {
           var xhr = this.xhr;
           rq = rq || xhr.config;
@@ -463,6 +494,12 @@
             return true;
           }
 
+          // 调用了 _xhrHook.hook，实现了对网络请求的全面拦截，可以在请求发送前或响应收到后执行额外的操作
+          /*
+            0, _xhrHook.hook 使用了逗号运算符（,）。
+            逗号运算符会先对左边的表达式求值（这里是 0），然后返回右边的表达式（这里是 _xhrHook.hook）。
+            整个表达式 (0, _xhrHook.hook) 等价于 _xhrHook.hook，但是它确保了在调用时不会将 this 绑定到 _xhrHook 对象上。
+          */
           var _hook = (0, _xhrHook.hook)(
               {
                 onload: preventXhrProxyCallback,
@@ -506,14 +543,16 @@
                     var req = function req() {
                       onRequest(config, new RequestHandler(xhr));
                     };
+                    // 同步请求（async === false）直接调用，异步请求通过 setTimeout 异步调用。
                     config.async === false ? req() : setTimeout(req);
                     return true;
                   }
                 },
                 setRequestHeader: function setRequestHeader(args, xhr) {
                   // Collect request headers
+                  // 将请求头信息保存到 config.headers 中。
                   xhr.config.headers[args[0].toLowerCase()] = args[1];
-                  if (onRequest) return true;
+                  if (onRequest) return true; // 如果存在拦截器，则阻止默认的请求头设置逻辑。
                 },
                 addEventListener: function addEventListener(args, xhr) {
                   var _this = this;
