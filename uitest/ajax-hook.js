@@ -391,11 +391,12 @@
 
           sub[prototype] = Object.create(Handler[prototype]);
           // 每个子处理程序都有一个 next 函数，用于在链式处理流程中调用下一个处理阶段。
-          sub[prototype].next = next;
+          sub[prototype].next = next; // 这里将控制权传递给下一个处理程序
           return sub;
         }
 
         // 具体的处理程序，负责最终执行 HTTP 请求。
+        // 传递给 makeHandler 的这个函数就是原始 XMLHttpRequest 执行 send 方法的逻辑。
         var RequestHandler = makeHandler(function (rq) {
           var xhr = this.xhr;
           rq = rq || xhr.config;
@@ -404,7 +405,7 @@
           for (var key in rq.headers) {
             xhr.setRequestHeader(key, rq.headers[key]);
           }
-          xhr.send(rq.body);
+          xhr.send(rq.body); // 在 send 方法中的控制权传递
         });
 
         var ResponseHandler = makeHandler(function (response) {
@@ -541,7 +542,27 @@
                     // However, XHR's event handler may not be set until xhr.send is called in
                     // the user's code, so we use `setTimeout` to avoid this situation
                     var req = function req() {
-                      onRequest(config, new RequestHandler(xhr));
+                      /*
+                        onRequest 是当前处理程序，它负责在请求发送前做一些准备工作。
+                        new RequestHandler(xhr) 是下一个处理程序，它接手当前请求，并负责发出 HTTP 请求。
+                        一般情况：onRequest 逻辑会在 RequestHandler 之前执行，因为 RequestHandler 是作为参数传递进去的，只有在 onRequest 中显式调用时才会执行。
+                        特殊情况：如果 onRequest 进行了异步操作，那么 RequestHandler 的执行会被延迟。
+
+                        ajax-hook 的使用示例
+                          ah.proxy({
+                            onRequest: function (config, handler) {
+                              // 修改请求的配置，如增加 headers，或打印日志
+                              console.log("Request is being processed:", config);
+
+                              // 执行下一个处理程序，通常是发送请求
+                              handler.next(config);
+                            }
+                          });
+                        
+                          梳理逻辑rx：send -》 hookFunction -》proxy[fun].call -》proxy.onRequest -> dosomething + handler.next 即 send
+                          -> new RequestHandler -> makeHandler(cb) -> new sub -> sub.prototype.nexxt = cb 即 send
+                      */
+                      onRequest(config, new RequestHandler(xhr)); // 调用下一个处理程序
                     };
                     // 同步请求（async === false）直接调用，异步请求通过 setTimeout 异步调用。
                     config.async === false ? req() : setTimeout(req);
